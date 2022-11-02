@@ -70,7 +70,7 @@ class NonParametric(SensorimotorModel):
                 else:
                     return self.mean_explore
         else:
-            print(in_dims, out_dims, self.m_dims, self.s_dims, self.m_dims[len(self.m_dims)//2:])
+            print((in_dims, out_dims, self.m_dims, self.s_dims, self.m_dims[len(self.m_dims)//2:]))
             raise NotImplementedError
 
     def predict_given_context(self, x, c, c_dims):

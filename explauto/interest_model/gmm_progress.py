@@ -60,7 +60,7 @@ class GmmInterest(InterestModel):
         cov_t_c = numpy.exp(cov_t_c)
         # cov_t_c[cov_t_c <= 1e-100] = 1e-100
 
-        gmm_choice = self.gmm.inference([0], range(1, len(self.expl_dims) + 1), [1.])
+        gmm_choice = self.gmm.inference([0], list(range(1, len(self.expl_dims) + 1)), [1.])
         gmm_choice.weights_ = cov_t_c
         gmm_choice.weights_ /= numpy.array(gmm_choice.weights_).sum()
 

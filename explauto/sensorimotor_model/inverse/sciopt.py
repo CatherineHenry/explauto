@@ -46,8 +46,8 @@ class ScipyInverseModel(OptimizedInverseModel):
         if len(self.fmodel.dataset) == 0:
             return [[0.0]*self.dim_out]
         else:
-            _, index = self.fmodel.dataset.nn_dims(m, np.hstack((s, ds)), range(len(m)), range(self.dim_x, self.dim_x + self.dim_y), k=1)
-            guesses = [self.fmodel.dataset.get_dims(index[0], dims=range(len(m), self.dim_x))]
+            _, index = self.fmodel.dataset.nn_dims(m, np.hstack((s, ds)), list(range(len(m))), list(range(self.dim_x, self.dim_x + self.dim_y)), k=1)
+            guesses = [self.fmodel.dataset.get_dims(index[0], dims=list(range(len(m), self.dim_x)))]
             result = []
                     
             for g in guesses:

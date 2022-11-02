@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 
 import time
 import numpy as np
@@ -325,9 +325,9 @@ class Tree(object):
                 nodes = self.get_leaves()
                 
             if  self.sampling_mode['volume']:
-                progresses = np.array(map(lambda node:node.progress*node.volume, nodes)) #by volume
+                progresses = np.array([node.progress*node.volume for node in nodes]) #by volume
             else:
-                progresses = np.array(map(lambda node:node.progress, nodes)) #by volume
+                progresses = np.array([node.progress for node in nodes]) #by volume
                 
             progress_max = max(progresses)
             probas = np.exp(progresses / (progress_max*temperature))
@@ -374,8 +374,8 @@ class Tree(object):
         Competence progress of the overall tree.
         
         """
-        return self.progress_idxs(range(np.shape(self.get_data_x())[0] - self.progress_win_size, 
-                                        np.shape(self.get_data_x())[0]))
+        return self.progress_idxs(list(range(np.shape(self.get_data_x())[0] - self.progress_win_size, 
+                                        np.shape(self.get_data_x())[0])))
     
             
     def progress_idxs(self, idxs):
@@ -388,7 +388,7 @@ class Tree(object):
                 return 0
             else:
                 idxs = sorted(idxs)[- self.progress_win_size:]
-                return abs(np.cov(zip(range(len(idxs)), self.get_data_c()[idxs]), rowvar=0)[0, 1])
+                return abs(np.cov(list(zip(list(range(len(idxs))), self.get_data_c()[idxs])), rowvar=0)[0, 1])
             
         elif self.progress_measure == 'abs_deriv':
             if len(idxs) <= 1:
@@ -851,7 +851,7 @@ if __name__ == '__main__':
                     progress_win_size, 
                     'abs_deriv', 
                     sampling_mode, 
-                    range(n))
+                    list(range(n)))
           
         print("Sampling", tree.sample())
         print("Progress", tree.progress)

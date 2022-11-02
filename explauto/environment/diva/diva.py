@@ -6,7 +6,7 @@ from explauto.utils import bounds_min_max
 from explauto.models.dmp import DmpPrimitive
 from explauto.environment.environment import Environment
 from explauto.models.dmp import DmpPrimitive
-from diva_synth import DivaOctaveSynth, DivaMatlabSynth
+from .diva_synth import DivaOctaveSynth, DivaMatlabSynth
 
 
 class DivaEnvironment(Environment):

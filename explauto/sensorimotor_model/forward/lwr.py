@@ -118,9 +118,9 @@ class LWLRForwardModel(ForwardModel):
     def predict_given_context(self, x, c, c_dims):
         q = list(x) + list(c)
         return self.predict_dims(q, 
-                                 range(self.dim_x), 
-                                 np.array(range(self.dim_x, self.dim_x + self.dim_y))[c_dims], 
-                                 list(set(range(self.dim_x, self.dim_x + self.dim_y)) - set(np.array(range(self.dim_x, self.dim_x + self.dim_y))[c_dims])))
+                                 list(range(self.dim_x)), 
+                                 np.array(list(range(self.dim_x, self.dim_x + self.dim_y)))[c_dims], 
+                                 list(set(range(self.dim_x, self.dim_x + self.dim_y)) - set(np.array(list(range(self.dim_x, self.dim_x + self.dim_y)))[c_dims])))
     
     #@profile
     def predict_dims(self, q, dims_x, dims_y, dims_out, sigma=None, k=None):

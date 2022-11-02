@@ -134,7 +134,7 @@ def simulate(n, x0, dt, func):
     dynamic = q + u
     dynamic.append(f)
     dummy_symbols = [Dummy() for i in dynamic]
-    dummy_dict = dict(zip(dynamic, dummy_symbols))
+    dummy_dict = dict(list(zip(dynamic, dummy_symbols)))
     kindiff_dict = kane.kindiffdict()
     M = kane.mass_matrix_full.subs(kindiff_dict).subs(dummy_dict)
     F = kane.forcing_full.subs(kindiff_dict).subs(dummy_dict)

@@ -39,7 +39,7 @@ class NNForwardModel(ForwardModel):
         @return    predicted y as np.array of float
         """
         assert len(c) == len(c_dims)
-        _, index = self.dataset.nn_dims(x, c, range(self.dim_x), list(np.array(c_dims) + self.dim_x), k=1)
+        _, index = self.dataset.nn_dims(x, c, list(range(self.dim_x)), list(np.array(c_dims) + self.dim_x), k=1)
         return self.dataset.get_y(index[0])
 
 

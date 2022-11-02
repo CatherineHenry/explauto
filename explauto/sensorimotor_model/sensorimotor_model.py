@@ -3,9 +3,8 @@ from abc import ABCMeta, abstractmethod
 from . import sensorimotor_models
 
 
-class SensorimotorModel(object):
+class SensorimotorModel(object, metaclass=ABCMeta):
     """ This abstract class provides the common interface for sensorimotor models. """
-    __metaclass__ = ABCMeta
 
     def __init__(self, conf):
         self.conf = conf

@@ -63,5 +63,5 @@ class ForwardModel(object):
 
     def config(self):
         """Return a string with the configuration"""
-        return ", ".join('%s:%s' % (key, value) for key, value in self.conf.items())
+        return ", ".join('%s:%s' % (key, value) for key, value in list(self.conf.items()))
 

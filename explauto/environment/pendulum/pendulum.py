@@ -2,7 +2,7 @@ from numpy import pi, array, cos, sin
 from numpy import random
 from copy import copy
 
-import simple_lip
+from . import simple_lip
 
 from ..environment import Environment
 from ...utils.utils import bounds_min_max

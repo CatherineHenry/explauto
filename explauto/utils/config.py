@@ -21,8 +21,8 @@ def make_configuration(m_mins, m_maxs, s_mins, s_maxs):
     s_ndims = len(s_mins)
     ndims = m_ndims + s_ndims
 
-    m_dims = range(m_ndims)
-    s_dims = range(m_ndims, ndims)
+    m_dims = list(range(m_ndims))
+    s_dims = list(range(m_ndims, ndims))
     dims = m_dims + s_dims
 
     m_bounds = vstack((m_mins, m_maxs))
@@ -50,7 +50,7 @@ class Space(object):
     def __init__(self, mins, maxs, cardinalities=None):
         self.mins, self.maxs = array(mins).astype(float), array(maxs).astype(float)
         self.ndims = self.mins.shape[0]
-        self.dims = range(self.ndims)
+        self.dims = list(range(self.ndims))
         self.cardinalities = cardinalities
         self.widths = array(self.maxs) - array(self.mins)
         self.bin_widths = self.widths / self.cardinalities

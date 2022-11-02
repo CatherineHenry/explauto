@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 import sklearn.mixture
 from numpy.linalg import inv, eig
 from numpy import ix_, array, inf, sqrt, linspace, zeros, arctan2, matrix, pi
@@ -164,9 +164,9 @@ class GMM(sklearn.mixture.GaussianMixture):
         else:
             means = self.means_[:, out_dims]
             if self.covariance_type == 'full':
-                covars = self.covariances_[ix_(range(self.n_components), out_dims, out_dims)]
+                covars = self.covariances_[ix_(list(range(self.n_components)), out_dims, out_dims)]
             if self.covariance_type == 'diag':
-                covars = self.covariances_[ix_(range(self.n_components), out_dims)]
+                covars = self.covariances_[ix_(list(range(self.n_components)), out_dims)]
             weights = self.weights_
 
         res = GMM(n_components=self.n_components,
@@ -207,7 +207,7 @@ class GMM(sklearn.mixture.GaussianMixture):
         return ellipsoids
 
     def plot(self, ax, label=False):
-        self.plot_projection(ax, range(self.means_.shape[1]), label)
+        self.plot_projection(ax, list(range(self.means_.shape[1])), label)
 
     def plot_projection(self, ax, dims, label=False):
         COLORS = self.weights_ / max(self.weights_)

@@ -50,8 +50,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'explauto'
-copyright = u'2014, Clement Moulin-Frier, Pierre Rouanet'
+project = 'explauto'
+copyright = '2014, Clement Moulin-Frier, Pierre Rouanet'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -213,8 +213,8 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  ('index', 'explauto.tex', u'explauto Documentation',
-   u'Clement Moulin-Frier, Pierre Rouanet', 'manual'),
+  ('index', 'explauto.tex', 'explauto Documentation',
+   'Clement Moulin-Frier, Pierre Rouanet', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -243,8 +243,8 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'explauto', u'explauto Documentation',
-     [u'Clement Moulin-Frier, Pierre Rouanet'], 1)
+    ('index', 'explauto', 'explauto Documentation',
+     ['Clement Moulin-Frier, Pierre Rouanet'], 1)
 ]
 
 # If true, show URL addresses after external links.
@@ -257,8 +257,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'explauto', u'explauto Documentation',
-   u'Clement Moulin-Frier, Pierre Rouanet', 'explauto',
+  ('index', 'explauto', 'explauto Documentation',
+   'Clement Moulin-Frier, Pierre Rouanet', 'explauto',
    'A library to study, model and simulated autonomous exploration in virtual and robotics agents.',
    'Miscellaneous'),
 ]

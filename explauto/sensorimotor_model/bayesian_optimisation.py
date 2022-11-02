@@ -21,7 +21,7 @@ class F_to_minimize(object):
         #~ return [np.exp(np.linalg.norm(s-self.s_goal)**2)]
         return [np.linalg.norm(s-self.s_goal)]
     def dist_array(self, S):
-        return np.array(map(self.dist,S))
+        return np.array(list(map(self.dist,S)))
     def f(self, m):
         ''' Function to minimize '''
         M = reshape(m,self.input_dim)

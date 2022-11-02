@@ -4,7 +4,7 @@ import os
 from numpy import pi, array, random, hstack, ones, zeros
 from matplotlib.pyplot import savefig, clf, axes
 
-import simulation
+from . import simulation
 
 from ..environment import Environment
 from ...utils.utils import bounds_min_max

@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 
 import logging
 
@@ -8,7 +8,7 @@ try:
     import queue
 except ImportError:
     # Python 2
-    import Queue as queue
+    import queue as queue
 
 
 logger = logging.getLogger(__name__)

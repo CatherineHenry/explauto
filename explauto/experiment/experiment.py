@@ -117,7 +117,7 @@ class Experiment(Observer):
                 env_state = self.env.update(m)
                 self.ag.perceive(env_state)
             else:
-                if self.context_mode.has_key('reset_iterations') and np.mod(self.current_step, self.context_mode['reset_iterations']) == 0:
+                if 'reset_iterations' in self.context_mode and np.mod(self.current_step, self.context_mode['reset_iterations']) == 0:
                     self.env.reset()
                 if self.context_mode["mode"] == 'mdmsds':
                     m = self.env.current_motor_position
@@ -157,7 +157,7 @@ class Experiment(Observer):
         self.log.eval_at = eval_at
 
         if mode is None:
-            if self.context_mode is None or (self.context_mode.has_key('choose_m') and self.context_mode['choose_m']):
+            if self.context_mode is None or ('choose_m' in self.context_mode and self.context_mode['choose_m']):
                 mode = 'inverse'
             else:
                 mode = self.context_mode["mode"]

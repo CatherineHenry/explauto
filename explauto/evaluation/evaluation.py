@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 import numpy as np
 from numpy import linalg
 
@@ -32,8 +32,8 @@ class Evaluation(object):
                 
                 m = self.env.current_motor_position
                 s = self.env.current_sensori_position
-                in_dims = range(self.ag.conf.m_ndims//2) + range(self.ag.conf.m_ndims, self.ag.conf.m_ndims + self.ag.conf.s_ndims)
-                out_dims = range(self.ag.conf.m_ndims//2, self.ag.conf.m_ndims)
+                in_dims = list(range(self.ag.conf.m_ndims//2)) + list(range(self.ag.conf.m_ndims, self.ag.conf.m_ndims + self.ag.conf.s_ndims))
+                out_dims = list(range(self.ag.conf.m_ndims//2, self.ag.conf.m_ndims))
                 dm = self.ag.infer(in_dims, 
                                 out_dims, 
                                 np.array(list(m) + list(np.hstack((s, s_g[len(s_g)//2:])))))
@@ -48,8 +48,8 @@ class Evaluation(object):
                 self.env.reset()
                 
                 context = self.env.get_current_context()
-                in_dims = range(self.ag.conf.m_ndims, self.ag.conf.m_ndims + self.ag.conf.s_ndims)
-                out_dims = range(self.ag.conf.m_ndims)
+                in_dims = list(range(self.ag.conf.m_ndims, self.ag.conf.m_ndims + self.ag.conf.s_ndims))
+                out_dims = list(range(self.ag.conf.m_ndims))
                 m = self.ag.infer(in_dims, 
                                 out_dims, 
                                 np.array(context + list(s_g)))

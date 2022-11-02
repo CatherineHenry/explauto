@@ -40,9 +40,9 @@ class ExperimentPool(object):
             s = settings[0]
             testcases = s.default_testcases
 
-        self._config = zip(settings,
+        self._config = list(zip(settings,
                            itertools.repeat(evaluate_at),
-                           itertools.repeat(testcases))
+                           itertools.repeat(testcases)))
 
     @classmethod
     def from_settings_product(cls, environments, babblings,

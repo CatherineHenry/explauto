@@ -48,7 +48,7 @@ class CanonicalSystem():
     def rollout(self, **kwargs):
         """Generate x for open loop movements.
         """
-        if kwargs.has_key('tau'):
+        if 'tau' in kwargs:
             timesteps = int(self.timesteps / kwargs['tau'])
         else: 
             timesteps = self.timesteps

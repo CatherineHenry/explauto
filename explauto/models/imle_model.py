@@ -9,8 +9,8 @@ path = os.path.dirname(os.path.abspath(__file__))
 try:
     import imle
 except ImportError:
-    print 'To use this model, you have to install IMLE first'
-    print 'Please check the doc.'
+    print('To use this model, you have to install IMLE first')
+    print('Please check the doc.')
     raise
 
 # print imle.__file__

@@ -23,7 +23,7 @@ import pylab as P
 
 import random as rd
 
-import simple_lip as lip
+from . import simple_lip as lip
 
 
 XMIN = -pi
@@ -55,4 +55,4 @@ rd.seed()
 
 # Ça devrait être assez explicite...
 res = build([XMIN, XMAX], [VMIN, VMAX], [UMIN, UMAX], 100)
-print res
+print(res)

@@ -81,7 +81,7 @@ class MiscRandomInterest(RandomInterest):
             if mode == 'all':
                 return np.mean(self.data_c)
             elif mode == 'sw':
-                idxs = range(self.n_points())[- self.win_size:]
+                idxs = list(range(self.n_points()))[- self.win_size:]
                 return np.mean([self.data_xc.get_y(idx) for idx in idxs])
             else:
                 raise NotImplementedError
@@ -114,7 +114,7 @@ class MiscRandomInterest(RandomInterest):
         if self.n_points() < 2:
             return 0.
         else:
-            idxs = range(self.n_points())[- self.win_size:]
+            idxs = list(range(self.n_points()))[- self.win_size:]
             v = [self.data_xc.get_y(idx) for idx in idxs]
             n = len(v)
             comp_beg = np.mean(v[:int(float(n)/2.)])

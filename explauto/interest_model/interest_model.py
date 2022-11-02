@@ -2,9 +2,7 @@ from abc import ABCMeta, abstractmethod
 
 from . import interest_models
 
-class InterestModel(object):
-    __metaclass__ = ABCMeta
-
+class InterestModel(object, metaclass=ABCMeta):
     def __init__(self, expl_dims):
         self.expl_dims = expl_dims
 

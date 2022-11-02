@@ -8,7 +8,7 @@ for mod_name in ['non_parametric']:
 
     models = getattr(module, 'sensorimotor_models')
 
-    for name, (sm, conf) in models.items():
+    for name, (sm, conf) in list(models.items()):
         sensorimotor_models[name] = (sm, conf)
 
 def available_configurations(model):

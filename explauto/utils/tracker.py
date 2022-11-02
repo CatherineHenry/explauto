@@ -3,9 +3,7 @@ from abc import ABCMeta, abstractmethod
 from ..exceptions import ExplautoEnvironmentUpdateError
 
 
-class Tracker(object):
-    __metaclass__ = ABCMeta
-
+class Tracker(object, metaclass=ABCMeta):
     @abstractmethod
     def get_position(self, tracked_object):
         pass

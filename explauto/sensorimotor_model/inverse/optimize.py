@@ -58,7 +58,7 @@ class OptimizedInverseModel(inverse.InverseModel):
         Once self.goal has been defined, compute the error
         of input using the generalized forward model.
         """
-        pred = self.fmodel.predict_given_context(np.hstack((m, dm)), s, range(len(s)))
+        pred = self.fmodel.predict_given_context(np.hstack((m, dm)), s, list(range(len(s))))
         err_v  = pred - self.goal
         error = sum(e*e for e in err_v)
         return error

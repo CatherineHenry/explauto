@@ -93,14 +93,14 @@ class DynamicEnvironment(Environment):
     def compute_motor_command(self, m_ag):  
         m_ag = bounds_min_max(m_ag, self.conf.m_mins, self.conf.m_maxs)
         if self.motor_traj_type == "DMP":
-            dyn_idx = range(self.n_dynamic_motor_dims * self.n_motor_traj_points)
+            dyn_idx = list(range(self.n_dynamic_motor_dims * self.n_motor_traj_points))
             m_weighted = m_ag[dyn_idx] * self.max_params
             if self.optim_initial_position:
                 m_weighted[:self.n_dynamic_motor_dims] = m_weighted[:self.n_dynamic_motor_dims] / self.max_params
             if self.optim_end_position:
                 m_weighted[-self.n_dynamic_motor_dims:] = m_weighted[-self.n_dynamic_motor_dims:] / self.max_params
             m_dyn = self.motor_dmp.trajectory(m_weighted)
-            static_idx = range(self.n_dynamic_motor_dims * self.n_motor_traj_points, self.conf.m_ndims)
+            static_idx = list(range(self.n_dynamic_motor_dims * self.n_motor_traj_points, self.conf.m_ndims))
             m_static = m_ag[static_idx]
             m = [list(m_dyn_param) + list(m_static) for m_dyn_param in list(m_dyn)]
         else:

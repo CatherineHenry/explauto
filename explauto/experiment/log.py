@@ -16,7 +16,7 @@ class ExperimentLog(object):
 
     @property
     def logs(self):
-        return {key: array(val) for key, val in self._logs.iteritems()}
+        return {key: array(val) for key, val in self._logs.items()}
 
     def add(self, topic, message):
         self._logs[topic].append(message)
@@ -60,7 +60,7 @@ class ExperimentLog(object):
         if t is None:
             for topic, _ in topic_dims:
                 t_bound = min(t_bound, self.counts[topic])
-            t = range(t_bound)
+            t = list(range(t_bound))
         data = self.pack(topic_dims, t)
         return data
 

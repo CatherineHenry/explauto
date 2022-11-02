@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 import numpy as np
 
-from cs import CanonicalSystem
+from .cs import CanonicalSystem
 
 class DMPs(object):
     """Implementation of Dynamic Motor Primitives, 
@@ -150,7 +150,7 @@ class DMPs(object):
         self.reset_state()
 
         if timesteps is None:
-            if kwargs.has_key('tau'):
+            if 'tau' in kwargs:
                 timesteps = int(self.timesteps / kwargs['tau'])
             else: 
                 timesteps = self.timesteps

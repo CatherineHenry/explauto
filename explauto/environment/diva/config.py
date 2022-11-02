@@ -22,7 +22,7 @@ def make_diva_config(m_max, m_used, s_used):
                 s_used=s_used)
 
 
-default_config = make_diva_config(1., range(10), range(1, 4))  # Art1-Art10, F1-F3
-vowel_config = make_diva_config(1., range(7), range(1, 3))  # Art1-Art7, F1-F2
-low_config = make_diva_config(1., range(3), range(1, 3))
-full_config = make_diva_config(1., range(13), range(4))  # Art1-Art10-F-P-V, F0-F1-F2-F3
+default_config = make_diva_config(1., list(range(10)), list(range(1, 4)))  # Art1-Art10, F1-F3
+vowel_config = make_diva_config(1., list(range(7)), list(range(1, 3)))  # Art1-Art7, F1-F2
+low_config = make_diva_config(1., list(range(3)), list(range(1, 3)))
+full_config = make_diva_config(1., list(range(13)), list(range(4)))  # Art1-Art10-F-P-V, F0-F1-F2-F3

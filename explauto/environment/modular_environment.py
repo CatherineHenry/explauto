@@ -45,9 +45,9 @@ class FlatEnvironment(Environment):
         m = np.array(m)
         dim_beg = self.n_params_envs_cumsum[i]
         if len(m.shape) == 1:
-            return m[range(dim_beg,dim_beg + self.n_params_envs[i])]
+            return m[list(range(dim_beg,dim_beg + self.n_params_envs[i]))]
         else:
-            return m[:,range(dim_beg,dim_beg + self.n_params_envs[i])]
+            return m[:,list(range(dim_beg,dim_beg + self.n_params_envs[i]))]
     
     def compute_motor_command(self, m):
         assert len(m) == self.conf.m_ndims, ((self.envs,m,self.conf.m_ndims))
@@ -55,9 +55,9 @@ class FlatEnvironment(Environment):
     
     def compute_sensori_effect(self, m):
         if len(np.array(m).shape) == 1:
-            result = self.combined_s([si for i,env in zip(range(self.n_envs), self.envs) for si in list(env.update(self.get_m_env(m, i), reset=False, log=False))])
+            result = self.combined_s([si for i,env in zip(list(range(self.n_envs)), self.envs) for si in list(env.update(self.get_m_env(m, i), reset=False, log=False))])
         else:
-            results_envs = [list(env.update(self.get_m_env(m, i), reset=False, log=False)) for i,env in zip(range(self.n_envs), self.envs)]
+            results_envs = [list(env.update(self.get_m_env(m, i), reset=False, log=False)) for i,env in zip(list(range(self.n_envs)), self.envs)]
             result = []
             for i in range(len(m)):   
                 result.append(self.combined_s([si for env_results in results_envs for si in env_results[i]]))

@@ -68,14 +68,14 @@ class Agent(Observable):
             else:
                 if self.context_mode["mode"] == 'mdmsds':
                     if self.expl_dims == self.conf.s_dims:
-                        x = np.hstack((context_ms[self.conf.m_ndims//2:], self.interest_model.sample_given_context(context_ms[self.conf.m_ndims//2:], range(self.conf.s_ndims//2))))
+                        x = np.hstack((context_ms[self.conf.m_ndims//2:], self.interest_model.sample_given_context(context_ms[self.conf.m_ndims//2:], list(range(self.conf.s_ndims//2)))))
                     else:
                         if self.context_mode['choose_m']:
                             x = self.interest_model.sample()
                         else:
-                            x = np.hstack((context_ms[:self.conf.m_ndims//2], self.interest_model.sample_given_context(context_ms[:self.conf.m_ndims//2], range(self.conf.m_ndims//2))))                
+                            x = np.hstack((context_ms[:self.conf.m_ndims//2], self.interest_model.sample_given_context(context_ms[:self.conf.m_ndims//2], list(range(self.conf.m_ndims//2)))))                
                 elif self.context_mode["mode"] == 'mcs':
-                    x = np.hstack((context_ms, self.interest_model.sample_given_context(context_ms, range(self.context_mode["context_n_dims"]))))
+                    x = np.hstack((context_ms, self.interest_model.sample_given_context(context_ms, list(range(self.context_mode["context_n_dims"])))))
         except ExplautoBootstrapError:
             logger.warning('Interest model not bootstrapped yet')
             x = rand_bounds(self.conf.bounds[:, self.expl_dims]).flatten()
@@ -139,8 +139,8 @@ class Agent(Observable):
                 self.x = self.choose(context_ms) 
                 if self.expl_dims == self.conf.s_dims and not self.context_mode['choose_m']:
                     m = context_ms[:self.conf.m_ndims//2]
-                    in_dims = range(self.conf.m_ndims//2) + range(self.conf.m_ndims, self.conf.m_ndims + self.conf.s_ndims)
-                    out_dims = range(self.conf.m_ndims//2, self.conf.m_ndims)
+                    in_dims = list(range(self.conf.m_ndims//2)) + list(range(self.conf.m_ndims, self.conf.m_ndims + self.conf.s_ndims))
+                    out_dims = list(range(self.conf.m_ndims//2, self.conf.m_ndims))
                     dm = self.infer(in_dims, 
                                     out_dims, 
                                     np.array(m + list(self.x)))
