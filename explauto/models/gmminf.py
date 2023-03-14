@@ -1,4 +1,3 @@
-
 import sklearn.mixture
 from numpy.linalg import inv, eig
 from numpy import ix_, array, inf, sqrt, linspace, zeros, arctan2, matrix, pi
@@ -7,7 +6,7 @@ from .gaussian import Gaussian
 
 
 def schur_complement(mat, row, col):
-    """ compute the schur complement of the matrix block mat[row:,col:] of the matrix mat """
+    """compute the schur complement of the matrix block mat[row:,col:] of the matrix mat"""
     a = mat[:row, :col]
     b = mat[:row, col:]
     c = mat[row:, :col]
@@ -15,9 +14,8 @@ def schur_complement(mat, row, col):
     return a - b.dot(d.I).dot(c)
 
 
-def conditional(mean, covar, dims_in, dims_out, covariance_type='full'):
-    """ Return a function f such that f(x) = p(dims_out | dims_in = x) (f actually returns the mean and covariance of the conditional distribution
-    """
+def conditional(mean, covar, dims_in, dims_out, covariance_type="full"):
+    """Return a function f such that f(x) = p(dims_out | dims_in = x) (f actually returns the mean and covariance of the conditional distribution"""
     in_in = covar[ix_(dims_in, dims_in)]
     in_out = covar[ix_(dims_in, dims_out)]
     out_in = covar[ix_(dims_out, dims_in)]
@@ -41,17 +39,24 @@ class GMM(sklearn.mixture.GaussianMixture):
             yield (weight, mean, covar)
 
     def probability(self, value):
-        p = 0.
+        p = 0.0
         for k, (w, m, c) in enumerate(self):
-            p += w * Gaussian(m.reshape(-1,), c).normal(value.reshape(-1,))
+            p += w * Gaussian(
+                m.reshape(
+                    -1,
+                ),
+                c,
+            ).normal(
+                value.reshape(
+                    -1,
+                )
+            )
         return p
 
     def sub_gmm(self, inds_k):
         gmm = GMM(n_components=len(inds_k), covariance_type=self.covariance_type)
 
-        gmm.weights_, gmm.means_, gmm.covariances_ = (self.weights_[inds_k],
-                                                self.means_[inds_k, :],
-                                                self.covariances_[inds_k, :, :])
+        gmm.weights_, gmm.means_, gmm.covariances_ = (self.weights_[inds_k], self.means_[inds_k, :], self.covariances_[inds_k, :, :])
         gmm.weights_ = gmm.weights_ / gmm.weights_.sum()
         return gmm
 
@@ -59,24 +64,40 @@ class GMM(sklearn.mixture.GaussianMixture):
         conditionals = []
 
         for k, (weight_k, mean_k, covar_k) in enumerate(self):
-            conditionals.append(conditional(mean_k, covar_k,
-                                            in_dims, out_dims,
-                                            self.covariance_type))
+            conditionals.append(conditional(mean_k, covar_k, in_dims, out_dims, self.covariance_type))
 
-        cond_weights = lambda v: [(weight_k * Gaussian(mean_k[in_dims].reshape(-1,),
-                                  covar_k[ix_(in_dims, in_dims)]).normal(v.reshape(-1,)))
-                                  for k, (weight_k, mean_k, covar_k) in enumerate(self)]
+        cond_weights = lambda v: [
+            (
+                weight_k
+                * Gaussian(
+                    mean_k[in_dims].reshape(
+                        -1,
+                    ),
+                    covar_k[ix_(in_dims, in_dims)],
+                ).normal(
+                    v.reshape(
+                        -1,
+                    )
+                )
+            )
+            for k, (weight_k, mean_k, covar_k) in enumerate(self)
+        ]
 
         def res(v):
-            gmm = GMM(n_components=self.n_components,
-                      covariance_type=self.covariance_type,
-                      random_state=self.random_state, thresh=self.thresh,
-                      min_covar=self.min_covar, n_iter=self.n_iter, n_init=self.n_init,
-                      params=self.params, init_params=self.init_params)
+            gmm = GMM(
+                n_components=self.n_components,
+                covariance_type=self.covariance_type,
+                random_state=self.random_state,
+                thresh=self.thresh,
+                min_covar=self.min_covar,
+                n_iter=self.n_iter,
+                n_init=self.n_init,
+                params=self.params,
+                init_params=self.init_params,
+            )
             gmm.weights_ = cond_weights(v)
             means_covars = [f(v) for f in conditionals]
-            gmm.means_ = array([mc[0] for mc in means_covars]).reshape(self.n_components,
-                                                                       -1)
+            gmm.means_ = array([mc[0] for mc in means_covars]).reshape(self.n_components, -1)
             gmm._set_covars(array([mc[1] for mc in means_covars]))
             return gmm
 
@@ -97,17 +118,19 @@ class GMM(sklearn.mixture.GaussianMixture):
             out_in.append(covar_k[ix_(out_dims, in_dims)])
             mu_in.append(mean_k[in_dims].reshape(-1, 1))
 
-            means[k, :] = (mean_k[out_dims] +
-                           (out_in *
-                            inin_inv *
-                            (value - mu_in)).T)
+            means[k, :] = mean_k[out_dims] + (out_in * inin_inv * (value - mu_in)).T
 
-            covars[k, :, :] = (covar_k[ix_(out_dims, out_dims)] -
-                               out_in *
-                               inin_inv *
-                               covar_k[ix_(in_dims, out_dims)])
-            weights[k] = weight_k * Gaussian(mu_in.reshape(-1,),
-                                             sig_in).normal(value.reshape(-1,))
+            covars[k, :, :] = covar_k[ix_(out_dims, out_dims)] - out_in * inin_inv * covar_k[ix_(in_dims, out_dims)]
+            weights[k] = weight_k * Gaussian(
+                mu_in.reshape(
+                    -1,
+                ),
+                sig_in,
+            ).normal(
+                value.reshape(
+                    -1,
+                )
+            )
         weights /= sum(weights)
 
         def p(value):
@@ -117,7 +140,7 @@ class GMM(sklearn.mixture.GaussianMixture):
         return p
 
     def inference(self, in_dims, out_dims, value=None):
-        """ Perform Bayesian inference on the gmm. Let's call V = V1...Vd the d-dimensional space on which the current GMM is defined, such that it represents P(V). Let's call X and Y to disjoint subspaces of V, with corresponding dimension indices in ran. This method returns the GMM for P(Y | X=value).
+        """Perform Bayesian inference on the gmm. Let's call V = V1...Vd the d-dimensional space on which the current GMM is defined, such that it represents P(V). Let's call X and Y to disjoint subspaces of V, with corresponding dimension indices in ran. This method returns the GMM for P(Y | X=value).
 
         :param list in_dims: the dimension indices of X (a subset of range(d)). This can be the empty list if one want to compute the marginal P(Y).
 
@@ -130,7 +153,7 @@ class GMM(sklearn.mixture.GaussianMixture):
         .. note:: For example, if X = V1...Vm and Y = Vm+1...Vd, then P(Y | X=v1...vm) is returned by self.inference(in_dims=range(m), out_dims=range(m, d), array([v1, ..., vm])).
         """
 
-        if self.covariance_type != 'diag' and self.covariance_type != 'full':
+        if self.covariance_type != "diag" and self.covariance_type != "full":
             raise ValueError("covariance type other than 'full' and 'diag' not allowed")
         in_dims = array(in_dims)
         out_dims = array(out_dims)
@@ -141,36 +164,36 @@ class GMM(sklearn.mixture.GaussianMixture):
         weights = zeros((self.n_components,))
         if in_dims.size:
             for k, (weight_k, mean_k, covar_k) in enumerate(self):
-
                 sig_in = covar_k[ix_(in_dims, in_dims)]
                 inin_inv = matrix(sig_in).I
                 out_in = covar_k[ix_(out_dims, in_dims)]
                 mu_in = mean_k[in_dims].reshape(-1, 1)
-                means[k, :] = (mean_k[out_dims] +
-                               (out_in *
-                                inin_inv *
-                                (value.reshape(-1, 1) - mu_in)).T)
-                if self.covariance_type == 'full':
-                    covars[k, :, :] = (covar_k[ix_(out_dims, out_dims)] -
-                                       out_in *
-                                       inin_inv *
-                                       covar_k[ix_(in_dims, out_dims)])
-                elif self.covariance_type == 'diag':
+                means[k, :] = mean_k[out_dims] + (out_in * inin_inv * (value.reshape(-1, 1) - mu_in)).T
+                if self.covariance_type == "full":
+                    covars[k, :, :] = covar_k[ix_(out_dims, out_dims)] - out_in * inin_inv * covar_k[ix_(in_dims, out_dims)]
+                elif self.covariance_type == "diag":
                     covars[k, :] = covar_k[out_dims]
 
-                weights[k] = weight_k * Gaussian(mu_in.reshape(-1,),
-                                                 sig_in).normal(value.reshape(-1,))
+                weights[k] = weight_k * Gaussian(
+                    mu_in.reshape(
+                        -1,
+                    ),
+                    sig_in,
+                ).normal(
+                    value.reshape(
+                        -1,
+                    )
+                )
             weights /= sum(weights)
         else:
             means = self.means_[:, out_dims]
-            if self.covariance_type == 'full':
+            if self.covariance_type == "full":
                 covars = self.covariances_[ix_(list(range(self.n_components)), out_dims, out_dims)]
-            if self.covariance_type == 'diag':
+            if self.covariance_type == "diag":
                 covars = self.covariances_[ix_(list(range(self.n_components)), out_dims)]
             weights = self.weights_
 
-        res = GMM(n_components=self.n_components,
-                  covariance_type=self.covariance_type)
+        res = GMM(n_components=self.n_components, covariance_type=self.covariance_type)
         res.weights_ = weights
         res.means_ = means
         res.covariances_ = covars
@@ -184,12 +207,7 @@ class GMM(sklearn.mixture.GaussianMixture):
         for i, ((weight, mean, _), covar) in enumerate(zip(self, self._get_covars())):
             (val, vect) = eig(covar)
 
-            el = Ellipse(mean,
-                         3.5 * sqrt(val[0]),
-                         3.5 * sqrt(val[1]),
-                         180. * arctan2(vect[1, 0], vect[0, 0]) / pi,
-                         fill=False,
-                         linewidth=2)
+            el = Ellipse(mean, 3.5 * sqrt(val[0]), 3.5 * sqrt(val[1]), 180.0 * arctan2(vect[1, 0], vect[0, 0]) / pi, fill=False, linewidth=2)
 
             el.set_facecolor(colors[i])
             el.set_fill(True)
@@ -201,6 +219,7 @@ class GMM(sklearn.mixture.GaussianMixture):
 
     def ellipses3D(self):
         from ..utils.ellipsoid import ellipsoid_3d
+
         ellipsoids = []
         for k, (weight_k, mean_k, covar_k) in enumerate(self):
             ellipsoids.append(ellipsoid_3d(mean_k, covar_k))
@@ -217,8 +236,8 @@ class GMM(sklearn.mixture.GaussianMixture):
         if len(dims) == 1:
             x_min, x_max = inf, -inf
             for w, m, c in self:
-                x_min = min(x_min, m[0] - 3. * sqrt(c[0, 0]))
-                x_max = max(x_max, m[0] + 3. * sqrt(c[0, 0]))
+                x_min = min(x_min, m[0] - 3.0 * sqrt(c[0, 0]))
+                x_max = max(x_max, m[0] + 3.0 * sqrt(c[0, 0]))
             x = linspace(x_min, x_max, 1000)
             p = [self.probability(xx) for xx in x]
             ax.plot(x, p)
@@ -230,10 +249,10 @@ class GMM(sklearn.mixture.GaussianMixture):
         elif len(dims) == 3:
             ellipsoids = gmm_proj.ellipses3D()
             for x, y, z in ellipsoids:
-                ax.plot_wireframe(x, y, z,  rstride=4, cstride=4, color='b', alpha=0.2)
+                ax.plot_wireframe(x, y, z, rstride=4, cstride=4, color="b", alpha=0.2)
         else:
             print("Can only print 2D or 3D ellipses")
         if label:
             for k, (w, m, c) in enumerate(gmm_proj):
-                ax.text(* tuple(m), s=str(k))
-        ax.axis('tight')
+                ax.text(*tuple(m), s=str(k))
+        ax.axis("tight")

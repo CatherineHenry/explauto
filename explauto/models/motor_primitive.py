@@ -10,11 +10,10 @@ class BasisFunctions(object):
 
         means = linspace(0, duration, n_basis)
         # FIXME:
-        variances = duration / (sigma * n_basis)**2
-        gaussians = [Gaussian(array([means[k]]), array([[variances]]))
-                     for k in range(len(means))]
+        variances = duration / (sigma * n_basis) ** 2
+        gaussians = [Gaussian(array([means[k]]), array([[variances]])) for k in range(len(means))]
 
-        self.x = arange(0., duration, dt)
+        self.x = arange(0.0, duration, dt)
         y = array([gaussians[k].normal(self.x.reshape(-1, 1)) for k in range(len(means))])
         self.z = y / tile(sum(y, 0), (n_basis, 1))
 
@@ -23,7 +22,7 @@ class BasisFunctions(object):
 
 
 class MovementPrimitive(object):
-    def __init__(self, duration, n_basis, dt, stiffness=0., damping=0.):
+    def __init__(self, duration, n_basis, dt, stiffness=0.0, damping=0.0):
         """
         :param float duration: duration of the movement in seconds
         :param list dt: time step used for numerical integration
@@ -32,18 +31,18 @@ class MovementPrimitive(object):
         self.duration = duration
         self.stiffness = stiffness
         self.damping = damping
-        self.basis = BasisFunctions(n_basis, self.duration, dt, 2.)
-        self.traj = zeros((self.duration/dt, 3))
-        self.acc = zeros(self.duration/dt)  # +1 due to ..utils.rk4 implementation
+        self.basis = BasisFunctions(n_basis, self.duration, dt, 2.0)
+        self.traj = zeros((self.duration / dt, 3))
+        self.acc = zeros(self.duration / dt)  # +1 due to ..utils.rk4 implementation
 
     def acceleration(self, t, state):
-        intrinsic_acc = - self.stiffness*state[0] - self.damping*state[1]
+        intrinsic_acc = -self.stiffness * state[0] - self.damping * state[1]
         return array([state[1], self.acc[t / self.dt] + intrinsic_acc])
 
     def trajectory(self, x0, command):
         self.acc = self.basis.trajectory(command)
         # self.acc[-1] = self.acc[-2] # still due to ..utils.rk4 implementation
-        t = 0.
+        t = 0.0
         self.traj[0, :] = [x0[0], x0[1], self.acc[0]]
         i_t = 1
         state = x0

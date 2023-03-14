@@ -64,7 +64,7 @@ class Gaussian(object):
         else:
             exp_term = numpy.sum(numpy.multiply(xc, numpy.dot(xc, self.inv)), axis=1)
 
-        return -.5 * (d * numpy.log(2 * numpy.pi) + numpy.log(self.det) + exp_term)
+        return -0.5 * (d * numpy.log(2 * numpy.pi) + numpy.log(self.det) + exp_term)
 
     def cond_gaussian(self, dims, v):
         """
@@ -83,26 +83,29 @@ class Gaussian(object):
         mu = mu1 + numpy.dot(numpy.dot(b, d_inv), v - mu2)
         sigma = a - numpy.dot(b, numpy.dot(d_inv, c))
         return Gaussian(mu, sigma)
+
     # TODO :  use a representation that allows different values of v
     #    without computing schur each time.
 
     def get_entropy(self):
-        """Computes (analyticaly) the entropy of the Gaussian distribution.
-        """
+        """Computes (analyticaly) the entropy of the Gaussian distribution."""
         dim = self.mu.shape[0]
-        entropy = 0.5 * (dim * (numpy.log(2. * numpy.pi) + 1.) + numpy.log(self.det))
+        entropy = 0.5 * (dim * (numpy.log(2.0 * numpy.pi) + 1.0) + numpy.log(self.det))
         return entropy
 
     def get_display_ellipse2D(self):
         from matplotlib.patches import Ellipse
+
         if self.mu.shape != (2,):
-            raise ValueError('Not a 2 dimensional gaussian')
+            raise ValueError("Not a 2 dimensional gaussian")
 
         (val, vect) = numpy.linalg.eig(self.sigma)
-        el = Ellipse(self.mu,
-                     3.5 * numpy.sqrt(val[0]),
-                     3.5 * numpy.sqrt(val[1]),
-                     180. * numpy.arctan2(vect[1, 0], vect[0, 0]) / numpy.pi,
-                     fill=False,
-                     linewidth=2)
+        el = Ellipse(
+            self.mu,
+            3.5 * numpy.sqrt(val[0]),
+            3.5 * numpy.sqrt(val[1]),
+            180.0 * numpy.arctan2(vect[1, 0], vect[0, 0]) / numpy.pi,
+            fill=False,
+            linewidth=2,
+        )
         return el
