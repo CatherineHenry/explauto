@@ -2,6 +2,12 @@
 .DS_Store
 
 notebook/.ipynb_checkpoints/*
+explauto/interest_model/.ipynb_checkpoints/*
+.ipynb_checkpoints/*
+sandbox/.ipynb_checkpoints/
+explauto/environment/poppy/.ipynb_checkpoints/*
+
+
 *.py[cod]
 
 # Distribution / packaging
