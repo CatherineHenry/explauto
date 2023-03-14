@@ -28,15 +28,16 @@ class NonParametric(SensorimotorModel):
         mbounds = tuple((self.bounds[0, d], self.bounds[1, d]) for d in range(self.m_ndims))
 
         self.model = Learner(mfeats, sfeats, mbounds, fwd, inv, **learner_kwargs)
-        self.t = 0
+        self.n_updates = 0  # number of points added to tree
         self.bootstrapped_s = False
 
     def infer(self, in_dims, out_dims, x):
-        if self.t < max(self.model.imodel.fmodel.k, self.model.imodel.k):
+        # I think `k` here is the number of neighbors used in weighting the nearest neighbor
+        if self.n_updates < max(self.model.inv_model.fwd_model.k, self.model.inv_model.k):
             raise ExplautoBootstrapError
 
         if in_dims == self.m_dims and out_dims == self.s_dims:  # forward
-            return array(self.model.predict_effect(tuple(x)))
+            return array(self.model.predict_effect(tuple(x))) # predict the sensory effect of the motor action
 
         elif in_dims == self.s_dims and out_dims == self.m_dims:  # inverse
             if not self.bootstrapped_s:
@@ -62,7 +63,7 @@ class NonParametric(SensorimotorModel):
                 m = x[:self.m_ndims//2]
                 s = x[self.m_ndims//2:][:self.s_ndims//2]
                 ds = x[self.m_ndims//2:][self.s_ndims//2:]
-                self.mean_explore = array(self.model.imodel.infer_dm(m, s, ds))
+                self.mean_explore = array(self.model.inv_model.infer_dm(m, s, ds))
                 if self.mode == 'explore':
                     r = np.random.normal(self.mean_explore, self.sigma_expl[out_dims])
                     res = bounds_min_max(r, self.m_mins[out_dims], self.m_maxs[out_dims])
@@ -74,28 +75,36 @@ class NonParametric(SensorimotorModel):
             raise NotImplementedError
 
     def predict_given_context(self, x, c, c_dims):
-        return self.model.imodel.fmodel.predict_given_context(x, c, c_dims)
+        return self.model.inv_model.fwd_model.predict_given_context(x, c, c_dims)
 
     def update(self, m, s):
         self.model.add_xy(tuple(m), tuple(s))
-        self.t += 1
-        if not self.bootstrapped_s and self.t > 1:
-            if not list(s) == list(self.model.imodel.fmodel.dataset.get_y(self.t - 2)):
+        self.n_updates += 1
+        if not self.bootstrapped_s and self.n_updates > 1:  # make sure there have been at least two updates
+            # Make sure we've seen new sensory data since 2 updates ago
+            if not list(s) == list(self.model.inv_model.fwd_model.dataset.get_y(self.n_updates - 2)):
                 self.bootstrapped_s = True
 
     def update_batch(self, m_list, s_list):
         self.model.add_xy_batch(m_list, s_list)
-        self.t += len(m_list)
+        self.n_updates += len(m_list)
         self.bootstrapped_s = True
 
     def size(self):
-        return self.t
+        return self.n_updates
 
 
 sensorimotor_models = {
-    'nearest_neighbor': (NonParametric, {'default': {'fwd': 'NN', 'inv': 'NN', 'sigma_explo_ratio':0.1},
-                                         'exact': {'fwd': 'NN', 'inv': 'NN', 'sigma_explo_ratio':0.}}),
-    'WNN': (NonParametric, {'default': {'fwd': 'WNN', 'inv': 'WNN', 'k':20, 'sigma':0.1}}),
-    'LWLR-BFGS': (NonParametric, {'default': {'fwd': 'LWLR', 'k':10, 'sigma':0.1, 'inv': 'L-BFGS-B', 'maxfun':50}}),
+    'nearest_neighbor': (NonParametric, {'default': {'fwd': 'NN', 'inv': 'NN', 'sigma_explo_ratio':0.1}, # simple nearest neighbor
+                                         'exact': {'fwd': 'NN', 'inv': 'NN', 'sigma_explo_ratio':0.},
+                                         'dev': {'fwd': 'NN', 'inv': 'NN', 'sigma_explo_ratio':0., 'k': 10, 'learner_kwargs': {'k': 10}}}),
+    'WNN': (NonParametric, {'default': {'fwd': 'WNN', 'inv': 'WNN', 'k':20, 'sigma':0.1}}), # weighted nearest neighbor,
+    'NSNN': (NonParametric, {'default': {'fwd': 'NSNN', 'inv': 'NSNN', 'sigma_explo_ratio': 0.1},
+                             'dev': {'fwd': 'NSNN', 'inv': 'NSNN', 'sigma_explo_ratio': 0.1, 'k': 2, 'learner_kwargs': {'k': 2}}}),
+    # LWLR == Locally Weigthed Linear Regression (LWLR)
+    # BFGS -> https://en.wikipedia.org/wiki/Broyden%E2%80%93Fletcher%E2%80%93Goldfarb%E2%80%93Shanno_algorithm
+    # 'LWLR-BFGS': (NonParametric, {'default': {'fwd': 'LWLR', 'k':10, 'sigma':0.1, 'inv': 'L-BFGS-B', 'maxfun':50}}),
+    # CMAES -> Covariance Matrix Adaptation Evolution Strategy
     'LWLR-CMAES': (NonParametric, {'default': {'fwd': 'LWLR', 'k':10, 'sigma':0.1, 'inv': 'CMAES', 'cmaes_sigma':0.05, 'maxfevals':20}}),
+
 }

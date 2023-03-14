@@ -43,6 +43,12 @@ class DiscretizedProgress(InterestModel):
         return self.space.rand_value(index).flatten()[list(set(range(len(self.space.cardinalities))) - set(c_dims))]
 
     def update(self, xy, ms):
+        """
+
+        :param xy: input (goal)
+        :param ms: effect (observed)
+        :return:
+        """
         comp = self.measure(xy, ms, dist_min=self.dist_min, dist_max=self.dist_max)
         x = xy[self.expl_dims]
         x_index = self.space.index(x)
@@ -60,6 +66,9 @@ class DiscretizedProgress(InterestModel):
 
 
 class DiscreteProgress(InterestModel):
+    """
+    Used in Discretized Progress class above
+    """
     def __init__(self, expl_dims, x_card, win_size, eps_random, measure, measure_init=0.):
         InterestModel.__init__(self, expl_dims)
 

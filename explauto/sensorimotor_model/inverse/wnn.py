@@ -12,14 +12,14 @@ class WeightedNNInverseModel(inverse.InverseModel):
     name = 'WNN'
     desc = 'Weighted Nearest Neighbors'
 
-    def __init__(self, dim_x, dim_y, fmodel, sigma=1.0, k=10, **kwargs):
+    def __init__(self, dim_x, dim_y, fwd_model, sigma=1.0, k=10, **kwargs):
         """
         @param k      the number of neighbors to consider for averaging
         @param sigma  for the moment, default sigma for forward model is the same as
                       the one of the inverse model. Not ideal. #FIXME
         """
-        self.k = fmodel.k
-        self.fmodel = fmodel
+        self.k = fwd_model.k
+        self.fwd_model = fwd_model
         self.sigma  = sigma
 
     def infer_x(self, y, sigma=None, k=None, **kwargs):
@@ -30,21 +30,21 @@ class WeightedNNInverseModel(inverse.InverseModel):
                   this value override the class provided one on a per
                   method call basis.
         """
-        assert len(y) == self.fmodel.dim_y, "Wrong dimension for y. Expected %i, got %i" % (self.fmodel.dim_y, len(y))
+        assert len(y) == self.fwd_model.dim_y, "Wrong dimension for y. Expected %i, got %i" % (self.fwd_model.dim_y, len(y))
         k = k or self.k
         sigma = sigma or self.sigma
         x_guess = self._guess_x(y, k = k)[0]
-        dists, index = self.fmodel.dataset.nn_x(x_guess, k = k)
+        dists, index = self.fwd_model.dataset.nn_x(x_guess, k = k)
         w = self._weights(index, dists, sigma*sigma,  y)
-        return [np.sum([wi*self.fmodel.dataset.get_x(idx)
+        return [np.sum([wi*self.fwd_model.dataset.get_x(idx)
                 for wi, idx in zip(w, index)], axis = 0)]
 
     def _weights(self, index, dists, sigma_sq, y_desired):
 
-        dists = [dist(self.fmodel.dataset.get_y(idx), y_desired)
+        dists = [dist(self.fwd_model.dataset.get_y(idx), y_desired)
                  for idx in index] # could be optimized
 
-        w = np.fromiter((gaussian_kernel(d/self.fmodel.dim_y, sigma_sq)
+        w = np.fromiter((gaussian_kernel(d / self.fwd_model.dim_y, sigma_sq)
                          for d in dists), np.float)
 
         # We eliminate the outliers # TODO : actually reduce w and index
@@ -52,7 +52,7 @@ class WeightedNNInverseModel(inverse.InverseModel):
         if wsum == 0:
             return 1.0/len(dists)*np.ones((len(dists),))
         else:
-            eps = wsum * 1e-15 / self.fmodel.dim_y
+            eps = wsum * 1e-15 / self.fwd_model.dim_y
             return np.fromiter((w_i/wsum if w_i > eps else 0.0 for w_i in w), np.float)
 
 

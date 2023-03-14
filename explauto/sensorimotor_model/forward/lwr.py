@@ -155,14 +155,14 @@ class LWLRForwardModel(ForwardModel):
     def _weights(self, dists, index, sigma_sq):
 
         w = np.fromiter((gaussian_kernel(d, sigma_sq)
-                         for d in dists), np.float, len(dists))
+                         for d in dists), float, len(dists))
 
         wsum = w.sum()
         if wsum == 0:
             return 1.0/len(dists)*np.ones((len(dists),))
         else:
             eps = wsum * 1e-10 / self.dim_x
-            return np.fromiter((w_i/wsum if w_i > eps else 0.0 for w_i in w), np.float)
+            return np.fromiter((w_i/wsum if w_i > eps else 0.0 for w_i in w), float)
 
 
 class NSLWLRForwardModel(LWLRForwardModel):
@@ -189,13 +189,13 @@ class NSLWLRForwardModel(LWLRForwardModel):
     def _weights(self, dists, index, sigma_sq):
 
         w = np.fromiter((gaussian_kernel(d, sigma_sq)
-                         for d in dists), np.float, len(dists))
+                         for d in dists), float, len(dists))
 
         # Weight by timestamp of samples to forget old values
         max_index = max(index)
         
         wt = np.fromiter((gaussian_kernel(max_index - idx, self.sigma_t_sq)
-                         for idx in index), np.float, len(dists))
+                         for idx in index), float, len(dists))
         w = w * wt
         
         wsum = w.sum()
@@ -203,7 +203,7 @@ class NSLWLRForwardModel(LWLRForwardModel):
             return 1.0/len(dists)*np.ones((len(dists),))
         else:
             eps = wsum * 1e-10 / self.dim_x
-            return np.fromiter((w_i/wsum if w_i > eps else 0.0 for w_i in w), np.float)
+            return np.fromiter((w_i/wsum if w_i > eps else 0.0 for w_i in w), float)
 
 
 class ESLWLRForwardModel(LWLRForwardModel):

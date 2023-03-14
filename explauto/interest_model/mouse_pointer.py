@@ -1,7 +1,7 @@
 from numpy import array
 
 from .interest_model import InterestModel
-from ..io.mouse_pointer import MousePointer as MP
+from ..explat_io.mouse_pointer import MousePointer as MP
 
 
 class MousePointer(InterestModel):

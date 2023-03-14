@@ -24,7 +24,7 @@ invclass = {'NN'       : inverse.NNInverseModel,
            }
 
 
-class Learner(object):
+class Learner():
     def __init__(self, Mfeats, Sfeats, Mbounds, fwd='LWLR', inv='L-BFGS-B', **kwargs):
         """
 
@@ -37,8 +37,8 @@ class Learner(object):
         self.Mfeats  = Mfeats
         self.Sfeats  = Sfeats
         self.Mbounds = Mbounds
-        fmodel = fwdclass[fwd](len(Mfeats), len(Sfeats), **kwargs)
-        self.imodel = invclass[inv](dim_x=len(Mfeats), dim_y=len(Sfeats), fmodel=fmodel, constraints=Mbounds, **kwargs)
+        fwd_model = fwdclass[fwd](len(Mfeats), len(Sfeats), **kwargs) # don't set as Learner attribute to enforce coupling with inv_model?
+        self.inv_model = invclass[inv](dim_x=len(Mfeats), dim_y=len(Sfeats), fwd_model=fwd_model, constraints=Mbounds, **kwargs)
 
     # Interface
 
@@ -48,9 +48,9 @@ class Learner(object):
             :arg x:  an input (order) vector compatible with self.Mfeats.
             :arg y:  a output (effect) vector compatible with self.Sfeats.
         """
-        self.imodel.add_xy(self._pre_x(x), self._pre_y(y))
+        self.inv_model.add_xy(self._pre_x(x), self._pre_y(y))
                 
-    def add_xy_batch(self, x_list, y_list): self.imodel.fmodel.add_xy_batch(x_list, y_list)
+    def add_xy_batch(self, x_list, y_list): self.inv_model.fwd_model.add_xy_batch(x_list, y_list)
 
     def infer_order(self, goal, **kwargs):
         """Infer an order in order to obtain an effect close to goal, given the
@@ -59,7 +59,7 @@ class Learner(object):
         :arg goal:  a goal vector compatible with self.Sfeats
         :rtype:  same as goal (if list, tuple, or pandas.Series, else tuple)
         """
-        x = self.imodel.infer_x(np.array(self._pre_y(goal)), **kwargs)[0]
+        x = self.inv_model.infer_x(np.array(self._pre_y(goal)), **kwargs)[0]
         return self._post_x(x, goal)
 
     def predict_effect(self, order, **kwargs):
@@ -68,7 +68,7 @@ class Learner(object):
         :arg order:  an order vector compatible with self.Mfeats
         :rtype:  same as order (if list, tuple, or pandas.Series, else tuple)
         """
-        y = self.imodel.fmodel.predict_y(np.array(self._pre_x(order)), **kwargs)
+        y = self.inv_model.fwd_model.predict_y(np.array(self._pre_x(order)), **kwargs)
         return self._post_y(y, order)
 
     # Pre and post treatment

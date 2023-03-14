@@ -12,11 +12,11 @@ class CMAESInverseModel(OptimizedInverseModel):
     name = 'CMAES'
     desc = 'CMA-ES, Covariance Matrix Adaptation Evolution Strategy'
 
-    def __init__(self, dim_x=None, dim_y=None, fmodel=None, cmaes_sigma=0.05, maxfevals=20, seed=None, **kwargs):
+    def __init__(self, dim_x=None, dim_y=None, fwd_model=None, cmaes_sigma=0.05, maxfevals=20, seed=None, **kwargs):
         self.cmaes_sigma = cmaes_sigma
         self.maxfevals = maxfevals
         self.seed = seed
-        OptimizedInverseModel.__init__(self, dim_x, dim_y, fmodel=fmodel, **kwargs)
+        OptimizedInverseModel.__init__(self, dim_x, dim_y, fwd_model=fwd_model, **kwargs)
 
     def _setuplimits(self, constraints):
         OptimizedInverseModel._setuplimits(self, constraints)
@@ -29,7 +29,7 @@ class CMAESInverseModel(OptimizedInverseModel):
         @return   a list of probable x
         """
         OptimizedInverseModel.infer_x(self, y)
-        if self.fmodel.size() == 0:
+        if self.fwd_model.size() == 0:
             return self._random_x()
 
         x_guesses = [self._guess_x_simple(y)[0]]
@@ -52,11 +52,11 @@ class CMAESInverseModel(OptimizedInverseModel):
         OptimizedInverseModel.infer_x(self, y)
         assert len(x) == len(dims_x)
         assert len(y) == len(dims_y)
-        if len(self.fmodel.dataset) == 0:
+        if len(self.fwd_model.dataset) == 0:
             return [[0.0]*self.dim_out]
         else:
-            _, index = self.fmodel.dataset.nn_dims(x, y, dims_x, dims_y, k=1)
-            guesses = [self.fmodel.dataset.get_dims(index[0], dims_out)]
+            _, index = self.fwd_model.dataset.nn_dims(x, y, dims_x, dims_y, k=1)
+            guesses = [self.fwd_model.dataset.get_dims(index[0], dims_out)]
 
             result = []
             for g in guesses:

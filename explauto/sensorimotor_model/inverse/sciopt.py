@@ -20,7 +20,7 @@ class ScipyInverseModel(OptimizedInverseModel):
         @return   a list of probable x
         """
         OptimizedInverseModel.infer_x(self, y)
-        if self.fmodel.size() == 0:
+        if self.fwd_model.size() == 0:
             return self._random_x()
 
         x_guesses = [self._guess_x_simple(y)[0]]
@@ -43,11 +43,11 @@ class ScipyInverseModel(OptimizedInverseModel):
         """Infer probable output from input x, y
         """
         OptimizedInverseModel.infer_dm(self, ds)
-        if len(self.fmodel.dataset) == 0:
+        if len(self.fwd_model.dataset) == 0:
             return [[0.0]*self.dim_out]
         else:
-            _, index = self.fmodel.dataset.nn_dims(m, np.hstack((s, ds)), list(range(len(m))), list(range(self.dim_x, self.dim_x + self.dim_y)), k=1)
-            guesses = [self.fmodel.dataset.get_dims(index[0], dims=list(range(len(m), self.dim_x)))]
+            _, index = self.fwd_model.dataset.nn_dims(m, np.hstack((s, ds)), list(range(len(m))), list(range(self.dim_x, self.dim_x + self.dim_y)), k=1)
+            guesses = [self.fwd_model.dataset.get_dims(index[0], dims=list(range(len(m), self.dim_x)))]
             result = []
                     
             for g in guesses:
@@ -91,7 +91,7 @@ class BFGSInverseModel(ScipyInverseModel):
     desc = 'L-BFGS-B'
     algo = 'L-BFGS-B'
 
-    def __init__(self, dim_x=None, dim_y=None, fmodel=None, constraints = (),
+    def __init__(self, dim_x=None, dim_y=None, fwd_model=None, constraints = (),
                  maxfun =  50,
                  ftol    = 1e-5,
                  gtol    = 1e-3,
@@ -114,7 +114,7 @@ class BFGSInverseModel(ScipyInverseModel):
         maxiter : int
             Maximum number of function evaluations.
         """
-        OptimizedInverseModel.__init__(self, dim_x, dim_y, fmodel=fmodel, constraints = constraints, **kwargs)
+        OptimizedInverseModel.__init__(self, dim_x, dim_y, fwd_model=fwd_model, constraints = constraints, **kwargs)
         self.bounds = constraints
         self.conf   = {'maxfun' : maxfun,
                        'ftol'    : ftol,
@@ -124,8 +124,8 @@ class BFGSInverseModel(ScipyInverseModel):
                       }
 
     def _guess_x(self, y_desired, **kwargs):
-        _, indexes = self.fmodel.dataset.nn_y(y_desired, k=1)
-        return [self.fmodel.dataset.get_x(indexes[0])]
+        _, indexes = self.fwd_model.dataset.nn_y(y_desired, k=1)
+        return [self.fwd_model.dataset.get_x(indexes[0])]
 
 
 class COBYLAInverseModel(ScipyInverseModel):

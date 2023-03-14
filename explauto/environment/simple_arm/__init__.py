@@ -11,8 +11,9 @@ def make_arm_config(m_ndims, m_max, s_mins, s_maxs, length_ratio, noise):
                 m_maxs=array([m_max] * m_ndims),
                 s_mins=s_mins,
                 s_maxs=s_maxs,
-                length_ratio=float(length_ratio),
-                noise=noise)
+                length_ratio=float(length_ratio),  # (length ratio from one segment to the following one)
+                noise=noise  # (gaussian noise added in the sensor space)
+                )
 
 low_dim = make_arm_config(3, pi/3, array([-0.5, -1.]), array([1., 1.]), 3, 0.02)
 mid_dim = make_arm_config(7, pi/3, array([-0.5, -1.]), array([1., 1.]), 3./2., 0.02)
@@ -21,7 +22,7 @@ hd_dim = make_arm_config(50, pi/12., array([-1., -1.]), array([1., 1.]), 1., 0.0
 
 # hd_dim_range = make_arm_config(30, pi/8., array([-2., -2.]), array([2., 2.]), 1., 0.001)
 # hd_dim_range = make_arm_config(15, pi/3., array([-2., -2.]), array([2., 2.]), 2./3., 0.001)
-hd_dim_range = make_arm_config(50, pi/12., array([-2., -2.]), array([2., 2.]), 1., 0.02)
+hd_dim_range = make_arm_config(m_ndims=50, m_max=pi/12., s_mins=array([-2., -2.]), s_maxs=array([2., 2.]), length_ratio=1., noise=0.02)
 
 environment = SimpleArmEnvironment
 configurations = {'low_dimensional': low_dim,

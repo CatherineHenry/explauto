@@ -13,27 +13,27 @@ class NNInverseModel(inverse.InverseModel):
     name = 'NN'
     desc = 'Nearest Neighbors'
 
-    def __init__(self, dim_x, dim_y, fmodel, **kwargs):
+    def __init__(self, dim_x, dim_y, fwd_model, **kwargs):
         """
         @param k  the number of neighbors to consider for averaging
         """
         self.dim_x = dim_x
         self.dim_y = dim_y
         inverse.InverseModel.__init__(self, dim_x, dim_y, **kwargs)
-        self.fmodel = fmodel
-        self.k = fmodel.k
+        self.fwd_model = fwd_model
+        self.k = fwd_model.k
 
     def infer_x(self, y):
         """Infer probable x from input y
 
         @param y  the desired output for infered x.
         """
-        assert len(y) == self.fmodel.dim_y, "Wrong dimension for y. Expected %i, got %i" % (self.fmodel.dim_y, len(y))
-        if len(self.fmodel.dataset) == 0:
+        assert len(y) == self.fwd_model.dim_y, "Wrong dimension for y. Expected %i, got %i" % (self.fwd_model.dim_y, len(y))
+        if len(self.fwd_model.dataset) == 0:
             return [[0.0]*self.dim_x]
         else:
-            _, index = self.fmodel.dataset.nn_y(y, k=1)
-            return [self.fmodel.dataset.get_x(index[0])]
+            _, index = self.fwd_model.dataset.nn_y(y, k=1)
+            return [self.fwd_model.dataset.get_x(index[0])]
 
     def infer_dm(self, m, s, ds):
         return self.infer_dims(m, np.hstack((s, ds)), list(range(len(m))), list(range(self.dim_x, self.dim_x + self.dim_y)), list(range(len(m), self.dim_x)))
@@ -44,11 +44,11 @@ class NNInverseModel(inverse.InverseModel):
         """
         assert len(x) == len(dims_x)
         assert len(y) == len(dims_y)
-        if len(self.fmodel.dataset) == 0:
+        if len(self.fwd_model.dataset) == 0:
             return [0.0]*self.dim_out
         else:
-            _, index = self.fmodel.dataset.nn_dims(x, y, dims_x, dims_y, k=1)
-            return self.fmodel.dataset.get_dims(index[0], dims=dims_out)
+            _, index = self.fwd_model.dataset.nn_dims(x, y, dims_x, dims_y, k=1)
+            return self.fwd_model.dataset.get_dims(index[0], dims=dims_out)
 
 
 class NSNNInverseModel(inverse.InverseModel):
@@ -57,15 +57,15 @@ class NSNNInverseModel(inverse.InverseModel):
     name = 'NSNN'
     desc = 'Non-Stationary Nearest Neighbors'
 
-    def __init__(self, dim_x, dim_y, fmodel, sigma=1.0, sigma_t=100, **kwargs):
+    def __init__(self, dim_x, dim_y, fwd_model, sigma=1.0, sigma_t=100, **kwargs):
         """
         @param k  the number of neighbors to consider for averaging
         """
         self.dim_x = dim_x
         self.dim_y = dim_y
         inverse.InverseModel.__init__(self, dim_x, dim_y, **kwargs)
-        self.fmodel = fmodel
-        self.k = fmodel.k
+        self.fwd_model = fwd_model
+        self.k = fwd_model.k
         self.sigma_sq = sigma*sigma
         self.sigma_t_sq = sigma_t*sigma_t
 
@@ -74,14 +74,14 @@ class NSNNInverseModel(inverse.InverseModel):
 
         @param y  the desired output for infered x.
         """
-        assert len(y) == self.fmodel.dim_y, "Wrong dimension for y. Expected %i, got %i" % (self.fmodel.dim_y, len(y))
-        if len(self.fmodel.dataset) == 0:
+        assert len(y) == self.fwd_model.dim_y, "Wrong dimension for y. Expected %i, got %i" % (self.fwd_model.dim_y, len(y))
+        if len(self.fwd_model.dataset) == 0:
             return [[0.0]*self.dim_x]
         else:
-            dists, index = self.fmodel.dataset.nn_y(y, k=self.k)
+            dists, index = self.fwd_model.dataset.nn_y(y, k=self.k)
             w = self._weights(dists, index)
             idx = index[np.argmax(w)]
-            return [self.fmodel.dataset.get_x(idx)]
+            return [self.fwd_model.dataset.get_x(idx)]
 
     def _weights(self, dists, index):
         w = np.fromiter((gaussian_kernel(d, self.sigma_sq)

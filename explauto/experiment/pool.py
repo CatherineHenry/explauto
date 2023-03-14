@@ -86,6 +86,7 @@ class ExperimentPool(object):
         use_process = array([e.use_process for e in env]).all() and (not use_thread)
 
         pool = Pool(processes) if use_process else ThreadPool(processes)
+        # print(f"Mega config: {mega_config}")
 
         logs = pool.map(_f, mega_config)
         logs = array(logs).reshape(-1, repeat)
@@ -97,7 +98,7 @@ class ExperimentPool(object):
     @property
     def settings(self):
         """ Returns a copy of the list of all the settings used. """
-        return array(self._config)[:, 0].tolist()
+        return array(self._config, dtype=object)[:, 0].tolist()
 
     @property
     def logs(self):

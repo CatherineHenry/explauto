@@ -1,6 +1,5 @@
 import importlib
-#from .environment import Environment
-
+# from .environment import Environment
 
 environments = {}
 # https://github.com/flowersteam/explauto/commit/f7e51d4483846f982433b8eaa8b6f912ab9ceda3 -pypot was deprecated?
@@ -14,6 +13,7 @@ for mod_name in ['simple_arm', 'pendulum', 'npendulum']:
         testcases = getattr(module, 'testcases')
         environments[mod_name] = (env, conf, testcases)
     except ImportError as e:
+        print(f"Error on module: {mod_name}")
         print(e)
         pass
 def available_configurations(environment):

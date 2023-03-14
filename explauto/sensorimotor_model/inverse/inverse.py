@@ -7,7 +7,7 @@ from scipy.cluster.vq import kmeans2
 from explauto.utils import dist
 
 
-class InverseModel(object):
+class InverseModel:
 
     @classmethod
     def from_dataset(cls, dataset, sigma, **kwargs):
@@ -15,11 +15,11 @@ class InverseModel(object):
         raise NotImplementedError
 
     @classmethod
-    def from_forward(cls, fmodel, **kwargs):
+    def from_forward(cls, fwd_model, **kwargs):
         """Construst an inverse model from a forward model and constraints.
         """
-        im = cls(fmodel.dim_x, fmodel.dim_y, **kwargs)
-        im.fmodel = fmodel
+        im = cls(fwd_model.dim_x, fwd_model.dim_y, **kwargs)
+        im.fwd_model = fwd_model
         return im
 
     def __init__(self, dim_x, dim_y, **kwargs):
@@ -36,7 +36,7 @@ class InverseModel(object):
 
         @param y  the desired output for infered x.
         """
-        assert len(y) == self.fmodel.dim_y, "Wrong dimension for y. Expected %i, got %i" % (self.fmodel.dim_y, len(y))
+        assert len(y) == self.fwd_model.dim_y, "Wrong dimension for y. Expected %i, got %i" % (self.fwd_model.dim_y, len(y))
         self.goal = np.array(y)
         
     def infer_dm(self, ds):
@@ -47,7 +47,7 @@ class InverseModel(object):
 
     def _random_x(self):
         """If the database is empty, generate a random vector."""
-        return (tuple(random.random() for _ in range(self.fmodel.dim_x)),)
+        return (tuple(random.random() for _ in range(self.fwd_model.dim_x)),)
 
 
     def _guess_x(self, y_desired, **kwargs):
@@ -61,12 +61,12 @@ class InverseModel(object):
         TODO : Implement another method taking the spread in M too.
         """
         k = kwargs.get('k', self.k)
-        _, indexes = self.fmodel.dataset.nn_y(y_desired, k = k)
+        _, indexes = self.fwd_model.dataset.nn_y(y_desired, k = k)
         min_std, min_xi = float('inf'), None
         for i in indexes:
-            xi = self.fmodel.dataset.get_x(i)
-            _, indexes_xi = self.fmodel.dataset.nn_x(xi, k = k)
-            std_xi = np.std([dist(self.fmodel.dataset.get_y(j), y_desired) for j in indexes_xi])
+            xi = self.fwd_model.dataset.get_x(i)
+            _, indexes_xi = self.fwd_model.dataset.nn_x(xi, k = k)
+            std_xi = np.std([dist(self.fwd_model.dataset.get_y(j), y_desired) for j in indexes_xi])
             if std_xi < min_std:
                 min_std, min_xi = std_xi, xi
             #print(std_xi, tuple(yi))
@@ -75,26 +75,26 @@ class InverseModel(object):
 
     def _guess_x_simple(self, y_desired, y_dims=None, **kwargs):
         """Provide an initial guesses for a probable x from y"""
-        _, indexes = self.fmodel.dataset.nn_y(y_desired, dims=y_dims, k = 10)
-        return [self.fmodel.get_x(i) for i in indexes]
+        _, indexes = self.fwd_model.dataset.nn_y(y_desired, dims=y_dims, k = 10)
+        return [self.fwd_model.get_x(i) for i in indexes]
 
     def _guess_x_kmeans(self, y_desired, **kwargs):
         """Provide an initial guesses for a probable x from y"""
         k = kwargs.get('k', self.k)
-        _, indexes = self.fmodel.dataset.nn_y(y_desired, k=k)
-        X = np.array([self.fmodel.get_x(i) for i in indexes])
+        _, indexes = self.fwd_model.dataset.nn_y(y_desired, k=k)
+        X = np.array([self.fwd_model.get_x(i) for i in indexes])
         if np.sum(X) == 0.:
-            centroids = [self.fmodel.get_x(indexes[0])]
+            centroids = [self.fwd_model.get_x(indexes[0])]
         else:
             try:
                 centroids, _ = kmeans2(X, 2)
             except np.linalg.linalg.LinAlgError:
-                centroids = [self.fmodel.get_x(indexes[0])]
+                centroids = [self.fwd_model.get_x(indexes[0])]
         return centroids
         
     def add_xy(self, x, y):
         self.add_x(x)
-        self.fmodel.add_xy(x, y)
+        self.fwd_model.add_xy(x, y)
 
     def add_x(self, x):
         """If the model needs to dynamically update the motor extermum, this
@@ -119,9 +119,9 @@ class RandomInverseModel(InverseModel):
         @param y  the desired output for infered x.
         """
         InverseModel.infer_x(y_desired)
-        if self.fmodel.size() == 0:
+        if self.fwd_model.size() == 0:
             return self._random_x()
         else:
-            idx = random.randint(0, self.fmodel.size()-1)
+            idx = random.randint(0, self.fwd_model.size()-1)
             return self.dataset.get_x(idx)
 

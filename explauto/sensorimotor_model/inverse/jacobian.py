@@ -10,9 +10,9 @@ class JacobianInverseModel(inverse.InverseModel):
     name = "Jacobian"
     desc = 'Jacobian'
  
-    def __init__(self, dim_x, dim_y, fmodel, **kwargs):
-        inverse.InverseModel.from_forward(fmodel, **kwargs)
-        self.fmodel = fmodel
+    def __init__(self, dim_x, dim_y, fwd_model, **kwargs):
+        inverse.InverseModel.from_forward(fwd_model, **kwargs)
+        self.fwd_model = fwd_model
         self.sigma = kwargs['sigma']
         self.k     = kwargs['k']
      
@@ -27,12 +27,12 @@ class JacobianInverseModel(inverse.InverseModel):
          
         xq = self._guess_x(y_desired, k = k, sigma = sigma, **kwargs)[0]    
          
-        dists, index = self.fmodel.dataset.nn_x(xq, k = k)
+        dists, index = self.fwd_model.dataset.nn_x(xq, k = k)
 
-        w = self.fmodel._weights(dists, sigma*sigma)
+        w = self.fwd_model._weights(dists, sigma * sigma)
         
-        X   = np.array([self.fmodel.dataset.get_x_padded(i) for i in index])
-        Y    = np.array([self.fmodel.dataset.get_y(i) for i in index])
+        X   = np.array([self.fwd_model.dataset.get_x_padded(i) for i in index])
+        Y    = np.array([self.fwd_model.dataset.get_y(i) for i in index])
          
         W   = np.diag(w)
         WX  = np.dot(W, X)
@@ -42,8 +42,8 @@ class JacobianInverseModel(inverse.InverseModel):
         
         M = np.dot(B, np.dot(W, Y))
         
-        _, idx = self.fmodel.dataset.nn_y(y_desired, k=1)        
-        ynn = self.fmodel.dataset.get_y(idx[0])
+        _, idx = self.fwd_model.dataset.nn_y(y_desired, k=1)
+        ynn = self.fwd_model.dataset.get_y(idx[0])
         
         eps = 0.00001
         

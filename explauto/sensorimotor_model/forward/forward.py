@@ -1,5 +1,6 @@
 
-from explauto.models.dataset import BufferedDataset as Dataset
+from explauto.models.ball_tree_dataset import BTDataset as Dataset
+# from explauto.models.ball_tree_dataset import BTBufferedDataset as Dataset # BufferedDataset avoids rebuilding tree with each addition.
 
 
 class ForwardModel(object):
