@@ -52,7 +52,8 @@ def lengths(n_dofs, ratio):
 
 
 class SimpleArmEnvironment(Environment):
-    use_process = True
+    use_process = False
+    # use_process = True
 
     def __init__(self, m_mins, m_maxs, s_mins, s_maxs,
                  length_ratio, noise):
@@ -68,13 +69,14 @@ class SimpleArmEnvironment(Environment):
 
     def compute_sensori_effect(self, joint_pos_env):
         hand_pos = np.array(forward(joint_pos_env, self.lengths))
+        # print(f"hand position: {hand_pos}")
         hand_pos += self.noise * np.random.randn(*hand_pos.shape)
         return hand_pos
 
-    def plot(self, ax, m, s, **kwargs_plot):
-        self.plot_arm(ax, m, **kwargs_plot)
+    def plot(self, ax, m, s, title='my plot', **kwargs_plot):
+        self.plot_arm(ax, m, title=title, **kwargs_plot)
 
-    def plot_arm(self, ax, m, **kwargs_plot):
+    def plot_arm(self, ax, m, title='my plot', **kwargs_plot):
         x, y = joint_positions(m, self.lengths)
         x = np.hstack((0., x))
         y = np.hstack((0., y))
@@ -84,3 +86,4 @@ class SimpleArmEnvironment(Environment):
         ax.axis([self.conf.s_mins[0], self.conf.s_maxs[0], self.conf.s_mins[1], self.conf.s_maxs[1]])
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
+        ax.set_title(title)

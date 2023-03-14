@@ -1,0 +1,1 @@
+Named `cozmo_env` to avoid name collision w/ the cozmo-sdk (imported as `cozmo`) 
