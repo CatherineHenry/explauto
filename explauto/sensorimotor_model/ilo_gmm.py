@@ -29,12 +29,12 @@ class IloGmm(SensorimotorModel):
         else:
             n_neighbors = self.n_neighbors
         if in_dims == self.m_dims and out_dims == self.s_dims:  # forward
-            dists, indexes = self.dataset.nn_x(x, k=n_neighbors)
+            distances, indexes = self.dataset.nn_x(x, k=n_neighbors)
             if self.mode == 'exploit':
                 return self.dataset.get_y(indexes[0])
 
         elif in_dims == self.s_dims and out_dims == self.m_dims:  # inverse
-            dists, indexes = self.dataset.nn_y(x, k=n_neighbors)
+            distances, indexes = self.dataset.nn_y(x, k=n_neighbors)
             if self.mode == 'exploit':
                 return self.dataset.get_x(indexes[0])
         else:

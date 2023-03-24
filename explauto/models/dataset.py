@@ -63,10 +63,10 @@ class Databag(object):
         :see: nn() for arguments descriptions.
         """
         self._build_tree()
-        dists, idxes = self.kdtree.query(v, k=k, distance_upper_bound=radius, eps=eps, p=p)
+        distances, idxes = self.kdtree.query(v, k=k, distance_upper_bound=radius, eps=eps, p=p)
         if k == 1:
-            dists, idxes = np.array([dists]), [idxes]
-        return dists, idxes
+            distances, idxes = np.array([distances]), [idxes]
+        return distances, idxes
 
     def _build_tree(self):
         """Build the KDTree for the observed data"""
@@ -235,10 +235,10 @@ class Dataset:
                     for data_x, data_y in zip(self.data[DATA_X], self.data[DATA_Y])
                 ]
             )
-        dists, idxes = kdtree.query(np.hstack((x, y)), k=k, distance_upper_bound=radius, eps=eps, p=p)
+        distances, idxes = kdtree.query(np.hstack((x, y)), k=k, distance_upper_bound=radius, eps=eps, p=p)
         if k == 1:
-            dists, idxes = np.array([dists]), [idxes]
-        return dists, idxes
+            distances, idxes = np.array([distances]), [idxes]
+        return distances, idxes
 
     def _nn(self, side, v, k=1, radius=np.inf, eps=0.0, p=2):
         """Compute the k nearest neighbors of v in the observed data,
@@ -247,10 +247,10 @@ class Dataset:
         @return  distance and indexes of found nearest neighbors.
         """
         self._build_tree(side)
-        dists, idxes = self.kdtree[side].query(v, k=k, distance_upper_bound=radius, eps=eps, p=p)
+        distances, idxes = self.kdtree[side].query(v, k=k, distance_upper_bound=radius, eps=eps, p=p)
         if k == 1:
-            dists, idxes = np.array([dists]), [idxes]
-        return dists, idxes
+            distances, idxes = np.array([distances]), [idxes]
+        return distances, idxes
 
     def _build_tree(self, side):
         """Build the KDTree for the observed data
@@ -378,19 +378,19 @@ class BufferedDataset(Dataset):
         @return  distance and indexes of found nearest neighbors.
         """
         if self.size > 0:
-            dists, idxes = Dataset.nn_dims(self, x, y, dims_x, dims_y, k, radius, eps, p)
+            distances, idxes = Dataset.nn_dims(self, x, y, dims_x, dims_y, k, radius, eps, p)
         else:
             return self.buffer.nn_dims(x, y, dims_x, dims_y, k, radius, eps, p)
         if self.buffer.size > 0:
-            buffer_dists, buffer_idxes = self.buffer.nn_dims(x, y, dims_x, dims_y, k, radius, eps, p)
+            buffer_distances, buffer_idxes = self.buffer.nn_dims(x, y, dims_x, dims_y, k, radius, eps, p)
             buffer_idxes = [i + self.size for i in buffer_idxes]
-            ziped = list(zip(dists, idxes))
-            buffer_ziped = list(zip(buffer_dists, buffer_idxes))
-            sorted_dists_idxes = sorted(ziped + buffer_ziped, key=lambda di: di[0])
-            knns = sorted_dists_idxes[:k]
+            ziped = list(zip(distances, idxes))
+            buffer_ziped = list(zip(buffer_distances, buffer_idxes))
+            sorted_distances_idxes = sorted(ziped + buffer_ziped, key=lambda di: di[0])
+            knns = sorted_distances_idxes[:k]
             return [knn[0] for knn in knns], [knn[1] for knn in knns]
         else:
-            return dists, idxes
+            return distances, idxes
 
     def _nn(self, side, v, k=1, radius=np.inf, eps=0.0, p=2):
         """Compute the k nearest neighbors of v in the observed data,
@@ -399,16 +399,16 @@ class BufferedDataset(Dataset):
         @return  distance and indexes of found nearest neighbors.
         """
         if self.size > 0:
-            dists, idxes = Dataset._nn(self, side, v, k, radius, eps, p)
+            distances, idxes = Dataset._nn(self, side, v, k, radius, eps, p)
         else:
             return self.buffer._nn(side, v, k, radius, eps, p)
         if self.buffer.size > 0:
-            buffer_dists, buffer_idxes = self.buffer._nn(side, v, k, radius, eps, p)
+            buffer_distances, buffer_idxes = self.buffer._nn(side, v, k, radius, eps, p)
             buffer_idxes = [i + self.size for i in buffer_idxes]
-            ziped = list(zip(dists, idxes))
-            buffer_ziped = list(zip(buffer_dists, buffer_idxes))
-            sorted_dists_idxes = sorted(ziped + buffer_ziped, key=lambda di: di[0])
-            knns = sorted_dists_idxes[:k]
+            ziped = list(zip(distances, idxes))
+            buffer_ziped = list(zip(buffer_distances, buffer_idxes))
+            sorted_distances_idxes = sorted(ziped + buffer_ziped, key=lambda di: di[0])
+            knns = sorted_distances_idxes[:k]
             return [knn[0] for knn in knns], [knn[1] for knn in knns]
         else:
-            return dists, idxes
+            return distances, idxes

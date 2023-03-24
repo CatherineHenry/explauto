@@ -85,25 +85,25 @@ class NSNNForwardModel(ForwardModel):
         sigma_sq = self.sigma_sq if sigma is None else sigma*sigma
         k = k or self.k
 
-        dists, index = self.dataset.nn_x(xq, k = k)
+        distances, index = self.dataset.nn_x(xq, k = k)
         #print(list(index))
 
-        w = self._weights(dists, index, sigma_sq)
+        w = self._weights(distances, index, sigma_sq)
         idx = index[np.argmax(w)]
         return self.dataset.get_y(idx)
 
-    def _weights(self, dists, index, sigma_sq):
+    def _weights(self, distances, index, sigma_sq):
         w = np.fromiter((gaussian_kernel(d, sigma_sq)
-                         for d in dists), float, len(dists))
+                         for d in distances), float, len(distances))
 
         # Weight by timestamp of samples to forget old values
         max_index = max(index)        
         wt = np.fromiter((gaussian_kernel(max_index - idx, self.sigma_t_sq)
-                         for idx in index), float, len(dists))
+                         for idx in index), float, len(distances))
         w = w * wt        
         wsum = w.sum()
         if wsum == 0:
-            return 1.0/len(dists)*np.ones((len(dists),))
+            return 1.0 / len(distances) * np.ones((len(distances),))
         else:
             eps = wsum * 1e-10 / self.dim_x
             return np.fromiter((w_i/wsum if w_i > eps else 0.0 for w_i in w), float)

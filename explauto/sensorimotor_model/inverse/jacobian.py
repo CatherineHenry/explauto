@@ -27,9 +27,9 @@ class JacobianInverseModel(inverse.InverseModel):
          
         xq = self._guess_x(y_desired, k = k, sigma = sigma, **kwargs)[0]    
          
-        dists, index = self.fwd_model.dataset.nn_x(xq, k = k)
+        distances, index = self.fwd_model.dataset.nn_x(xq, k = k)
 
-        w = self.fwd_model._weights(dists, sigma * sigma)
+        w = self.fwd_model._weights(distances, sigma * sigma)
         
         X   = np.array([self.fwd_model.dataset.get_x_padded(i) for i in index])
         Y    = np.array([self.fwd_model.dataset.get_y(i) for i in index])

@@ -34,23 +34,23 @@ class WeightedNNInverseModel(inverse.InverseModel):
         k = k or self.k
         sigma = sigma or self.sigma
         x_guess = self._guess_x(y, k = k)[0]
-        dists, index = self.fwd_model.dataset.nn_x(x_guess, k = k)
-        w = self._weights(index, dists, sigma*sigma,  y)
+        distances, index = self.fwd_model.dataset.nn_x(x_guess, k = k)
+        w = self._weights(index, distances, sigma*sigma,  y)
         return [np.sum([wi*self.fwd_model.dataset.get_x(idx)
                 for wi, idx in zip(w, index)], axis = 0)]
 
-    def _weights(self, index, dists, sigma_sq, y_desired):
+    def _weights(self, index, distances, sigma_sq, y_desired):
 
-        dists = [dist(self.fwd_model.dataset.get_y(idx), y_desired)
-                 for idx in index] # could be optimized
+        distances = [dist(self.fwd_model.dataset.get_y(idx), y_desired)
+                     for idx in index] # could be optimized
 
         w = np.fromiter((gaussian_kernel(d / self.fwd_model.dim_y, sigma_sq)
-                         for d in dists), np.float)
+                         for d in distances), np.float)
 
         # We eliminate the outliers # TODO : actually reduce w and index
         wsum = w.sum()
         if wsum == 0:
-            return 1.0/len(dists)*np.ones((len(dists),))
+            return 1.0 / len(distances) * np.ones((len(distances),))
         else:
             eps = wsum * 1e-15 / self.fwd_model.dim_y
             return np.fromiter((w_i/wsum if w_i > eps else 0.0 for w_i in w), np.float)
@@ -61,6 +61,6 @@ class ESWNNInverseModel(WeightedNNInverseModel):
 
     name = 'ES-WNN'
 
-    def _weights(self, index, dists, sigma_sq, y_desired):
-        sigma_sq=(dists**2).sum()/len(dists)
-        return WeightedNNInverseModel._weights(self, index, dists, sigma_sq, y_desired)
+    def _weights(self, index, distances, sigma_sq, y_desired):
+        sigma_sq= (distances ** 2).sum() / len(distances)
+        return WeightedNNInverseModel._weights(self, index, distances, sigma_sq, y_desired)

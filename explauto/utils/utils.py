@@ -13,6 +13,7 @@ def gaussian_kernel(d, sigma_sq):
     @param d         the euclidean distance
     @param sigma_sq  sigma of the gaussian, squared.
     """
+    # https://www.desmos.com/calculator/blfqh9yxoc
     return math.exp(-(d*d)/(2.*sigma_sq))
 
 

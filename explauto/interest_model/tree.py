@@ -5,19 +5,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from heapq import heappop, heappush
+
+from matplotlib.offsetbox import AnnotationBbox, OffsetImage
+from matplotlib.patches import Polygon
 from scipy.spatial.kdtree import minkowski_distance_p
 
 from ..utils.utils import rand_bounds
 from ..utils.config import make_configuration
 from .interest_model import InterestModel
-from .competences import competence_exp, competence_dist
+from .competences import competence_exp, competence_dist, competence_cos_exp, cos_distance, competence_cos_log
+from ..utils.observer import Observable
 
 
-
-class InterestTree(InterestModel):
+class InterestTree(InterestModel, Observable):
     """
     class InterestTree implements either R-IAC or SAGG-RIAC
-    
     """
     def __init__(self, 
                  conf, 
@@ -29,7 +31,6 @@ class InterestTree(InterestModel):
                  progress_win_size, 
                  progress_measure, 
                  sampling_mode):
-        
         self.conf = conf
         self.bounds = self.conf.bounds[:, expl_dims]
         self.competence_measure = competence_measure
@@ -37,11 +38,11 @@ class InterestTree(InterestModel):
         if progress_win_size >= max_points_per_region:
             raise ValueError("WARNING: progress_win_size should be < max_points_per_region")
         
-        self.data_x = None
-        self.data_c = None
+        self.data_x = None # list of target motor or sensory goals 'x'
+        self.data_c = None # list of competence measures
 
         self.tree = Tree(lambda:self.data_x, 
-                         np.array(self.bounds, dtype=np.float), 
+                         np.array(self.bounds, dtype=float),
                          lambda:self.data_c, 
                          max_points_per_region=max_points_per_region, 
                          max_depth=max_depth,
@@ -52,6 +53,8 @@ class InterestTree(InterestModel):
                          idxs=[])
         
         InterestModel.__init__(self, expl_dims)
+        Observable.__init__(self)
+
 
     def sample(self):
         return self.tree.sample()
@@ -62,23 +65,33 @@ class InterestTree(InterestModel):
     def max_leaf_progress(self):
         return self.tree.max_leaf_progress
     
-    def update(self, xy, ms):
+    def update(self, xy, ms, flow_uuid=None):
+        """
+        data_x will be either the motor vector or sensory vector depending on exploration dimensions.
+        :param xy: Target SM Space (concat Motor x Sensory vectors)
+        :param ms: Reached SM Space (concat Motor x Sensory vectors)
+        :return:
+        """
         # print np.shape(self.data_x), np.shape(np.array([xy[self.expl_dims]]))
         if self.data_x is None:
             self.data_x = np.array([xy[self.expl_dims]])
         else:
             self.data_x = np.append(self.data_x, np.array([xy[self.expl_dims]]), axis=0)
+
+        comp_dist, bounded, comp_measure = self.competence_measure(xy, ms)
+        self.emit(f"[{flow_uuid}] competence", f"[comp dist: {comp_dist}, bounded: {bounded}] log cos distance between target and reached: {comp_measure}")
         if self.data_c is None:
-            self.data_c = np.array([self.competence_measure(xy, ms)]) # Either prediction error or competence error
+            self.data_c = np.array([comp_measure]) # Either prediction error or competence error
         else:
-            self.data_c = np.append(self.data_c, self.competence_measure(xy, ms)) 
+            self.data_c = np.append(self.data_c, comp_measure)
         self.tree.add(np.shape(self.data_x)[0] - 1)
 
 
 
 
 
-class Tree(object):
+## Essentially treating every node as a "tree". Leaf nodes identified by self.leafnode = True
+class Tree(Observable):
     """
         Competence Progress Tree (recursive)
         
@@ -155,7 +168,7 @@ class Tree(object):
                  sampling_mode, 
                  idxs=None, 
                  split_dim=0):
-        
+
         self.get_data_x = get_data_x
         self.bounds_x = np.array(bounds_x, dtype=np.float64)
         self.get_data_c = get_data_c
@@ -174,18 +187,19 @@ class Tree(object):
             self.idxs = []
         else:
             self.idxs = idxs
-        self.children = len(self.idxs)
+        self.n_children = len(self.idxs)
         self.volume = np.prod(self.bounds_x[1,:] - self.bounds_x[0,:])
         
-        self.leafnode = True
-        self.progress = 0
+        self.leafnode = True # identifies if self is a Leaf Node
+        self.progress = 0 # potential learning progress (will select points where this is high)
         self.max_leaf_progress = 0
         
-        if self.children > self.max_points_per_region:
+        if self.n_children > self.max_points_per_region:
             self.split()
         self.update_max_progress()
-            
-        
+        Observable.__init__(self)
+
+
     def get_nodes(self):
         """
         Get the list of all nodes.
@@ -199,7 +213,7 @@ class Tree(object):
         Get the list of all leaves.
         
         """
-        return self.fold_up(lambda n, fl, fg: fl + fg, lambda leaf: [leaf])
+        return self.fold_up(f_inter=lambda n, fl, fg: fl + fg, f_leaf =lambda leaf: [leaf])
     
     
     def depth(self):
@@ -215,7 +229,7 @@ class Tree(object):
         Compute the density of the node.
         
         """
-        return self.children / self.volume
+        return self.n_children / self.volume
     
     
     def pt2leaf(self, x):
@@ -246,7 +260,7 @@ class Tree(object):
         Sample a point in a random leaf.
         
         """
-        if self.sampling_mode['volume']:  
+        if self.sampling_mode['volume']:
             # Choose a leaf weighted by volume, randomly
             if self.leafnode:
                 return self.sample_bounds()
@@ -254,9 +268,9 @@ class Tree(object):
                 split_ratio = ((self.split_value - self.bounds_x[0,self.split_dim]) / 
                                (self.bounds_x[1,self.split_dim] - self.bounds_x[0,self.split_dim]))
                 if split_ratio > np.random.random():
-                    return self.lower.sample(sampling_mode=['random'])
+                    return self.lower.sample(sampling_mode={'mode':'random'})
                 else:
-                    return self.greater.sample(sampling_mode=['random'])
+                    return self.greater.sample(sampling_mode={'mode':'random'})
         else: 
             # Choose a leaf randomly
             return np.random.choice(self.get_leaves()).sample_bounds()
@@ -290,7 +304,7 @@ class Tree(object):
         
     def sample_epsilon_greedy(self, epsilon=0.1):
         """
-        Sample a point in the leaf with the max progress with probability (1-eps) and a random leaf with probability (eps).
+        Sample a point in the leaf with the max potential learning progress with probability (1-eps) and a random leaf with probability (eps).
         
         Parameters
         ----------
@@ -310,14 +324,18 @@ class Tree(object):
     def sample_softmax(self, temperature=1.):
         """
         Sample leaves with probabilities progress*volume and a softmax exploration (with a temperature parameter).
-        
+
+        volume is the product of the bounds of exploration for that tree / subtree.
+
+        Sampling always looks to maximize learning progress
+
         Parameters
         ----------
         temperature : float 
         
         """
         if self.leafnode:
-            return self.sample_bounds()
+            return self.sample_bounds() # random sample of bounds
         else:
             if self.sampling_mode['multiscale']:
                 nodes = self.get_nodes()
@@ -327,7 +345,7 @@ class Tree(object):
             if  self.sampling_mode['volume']:
                 progresses = np.array([node.progress*node.volume for node in nodes]) #by volume
             else:
-                progresses = np.array([node.progress for node in nodes]) #by volume
+                progresses = np.array([node.progress for node in nodes])
                 
             progress_max = max(progresses)
             probas = np.exp(progresses / (progress_max*temperature))
@@ -380,10 +398,11 @@ class Tree(object):
             
     def progress_idxs(self, idxs):
         """
-        Competence progress on points of given indexes.
+        Competence progress on points of given indexes. (lower competence the better)
         
         """
         if self.progress_measure == 'abs_deriv_cov':
+            #  approach from explauto's discrete progress interest model
             if len(idxs) <= 1:
                 return 0
             else:
@@ -391,6 +410,7 @@ class Tree(object):
                 return abs(np.cov(list(zip(list(range(len(idxs))), self.get_data_c()[idxs])), rowvar=0)[0, 1])
             
         elif self.progress_measure == 'abs_deriv':
+            # absolute difference between first and last points in the window
             if len(idxs) <= 1:
                 return 0
             else:
@@ -398,14 +418,15 @@ class Tree(object):
                 return np.abs(np.mean(np.diff(self.get_data_c()[idxs], axis=0)))
 
         elif self.progress_measure == 'abs_deriv_smooth':
+            # absolute difference between first and last half of the window
             if len(idxs) <= 1:
                 return 0
             else:
                 idxs = sorted(idxs)[- self.progress_win_size:]
-                v = self.get_data_c()[idxs]
-                n = len(v)
-                comp_beg = np.mean(v[:int(float(n)/2.)])
-                comp_end = np.mean(v[int(float(n)/2.):])
+                idxs_competencies = self.get_data_c()[idxs]
+                n_competencies = len(idxs_competencies)
+                comp_beg = np.mean(idxs_competencies[:int(float(n_competencies)/2.)])
+                comp_end = np.mean(idxs_competencies[int(float(n_competencies)/2.):])
                 return np.abs(comp_end - comp_beg)
         else:
             raise NotImplementedError(self.progress_measure)
@@ -436,19 +457,19 @@ class Tree(object):
         Add an index to the tree (recursive).
         
         """
-        if self.leafnode and self.children >= self.max_points_per_region and self.max_depth > 0:
+        if self.leafnode and self.n_children >= self.max_points_per_region and self.max_depth > 0:
             self.split() 
         self.idxs.append(idx)
         if self.leafnode:
-            leaf_add = self
+            leaf_point_was_added_to = self
         else:
             if self.get_data_x()[idx, self.split_dim] >= self.split_value:
-                leaf_add = self.greater.add(idx)            
+                leaf_point_was_added_to = self.greater.add(idx)  # recurse add until it gets to a leaf node to add
             else:
-                leaf_add = self.lower.add(idx)
+                leaf_point_was_added_to = self.lower.add(idx)  # recurse add until it gets to a leaf node to add
         self.update_max_progress()
-        self.children = self.children + 1
-        return leaf_add # return leaf on which the point has been added
+        self.n_children = self.n_children + 1
+        return leaf_point_was_added_to # return leaf on which the point has been added
     
     
     def split(self):
@@ -456,6 +477,7 @@ class Tree(object):
         Split the leaf node.
         
         """
+        self.emit("split", f"Splitting: {self.split_mode}")
         if self.split_mode == 'random':
             # Split randomly between min and max of node's points on split dimension
             split_dim_data = self.get_data_x()[self.idxs, self.split_dim] # data on split dim
@@ -505,16 +527,18 @@ class Tree(object):
                     splits_fitness[i] = len(lower_idx) * len(greater_idx) * abs(self.progress_idxs(lower_idx) - 
                                                                                self.progress_idxs(greater_idx))
                 split_value = splits[np.argmax(splits_fitness)]
-            
         else:
             raise NotImplementedError
+
+        self.emit("split", f"Split dimension: {self.split_dim}, value: {split_value}")
     
         lower_idx = list(np.array(self.idxs)[np.nonzero(split_dim_data <= split_value)[0]])
         greater_idx = list(np.array(self.idxs)[np.nonzero(split_dim_data > split_value)[0]])
 
         self.leafnode = False
         self.split_value = split_value
-        
+
+        # mod split dim+1, num of features(cols) in x. Each iteration will update to next dimension (or in case of 2 dims, just toggle between them)
         split_dim = np.mod(self.split_dim + 1, np.shape(self.get_data_x())[1])
         
         l_bounds_x = np.array(self.bounds_x)
@@ -722,9 +746,9 @@ class Tree(object):
                 else:
                     return np.inf, self.n
             elif k > 1:
-                dd = np.empty(k,dtype=np.float)
+                dd = np.empty(k,dtype=float)
                 dd.fill(np.inf)
-                ii = np.empty(k,dtype=np.int)
+                ii = np.empty(k,dtype=int)
                 ii.fill(self.n)
                 for j in range(len(hits)):
                     dd[j], ii[j] = hits[j]
@@ -744,7 +768,7 @@ class Tree(object):
                         
                 
             
-    def plot(self, ax, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=10, plot_dims=[0,1]):
+    def plot(self, ax, ax2=None, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=10, plot_dims=[0,1]):
         """
         Plot a projection on 2D of the Tree.
         
@@ -765,18 +789,39 @@ class Tree(object):
             List of the 2 dimensions to project tree on
         
         """
-        
-        if scatter and self.get_data_x() is not None:
-            self.plot_scatter(ax, plot_dims)
-            
+        ax.clear()
+        cat_path = './retico/misc/cat_icon.png'
+        eleph_path = './retico/misc/elephant_icon.png'
         if grid:
             self.plot_grid(ax, progress_colors, progress_max, depth, plot_dims)
-            
+        if scatter and self.get_data_x() is not None:
+            self.plot_scatter(ax, plot_dims, cat_path=cat_path, eleph_path=eleph_path)
+        if ax2 is not None:
+            ax2.clear()
+            self.plot_scatter_radians(ax2, cat_path=cat_path, eleph_path=eleph_path)
+
+
     
-    def plot_scatter(self, ax, plot_dims=[0,1]):
+    def plot_scatter(self, ax, plot_dims=[0,1], cat_path=None, eleph_path=None):
+        ax.add_patch(Polygon([[112, -10], [140, -80], [168, -10], [140, 80]], facecolor="green", alpha=0.5))
+        ax.add_patch(Polygon([[2, -10], [30, -80], [58, -10], [30, 80]], facecolor="green", alpha=0.5))
+        cat_ab = AnnotationBbox(OffsetImage(plt.imread(cat_path), zoom=0.015), (140, 80), box_alignment=(0.5, -0.15),frameon=False)
+        ax.add_artist(cat_ab)
+        eleph_ab = AnnotationBbox(OffsetImage(plt.imread(eleph_path), zoom=0.015), (45, 80), box_alignment=(1, -0.15), frameon=False)
+        ax.add_artist(eleph_ab)
         if np.shape(self.get_data_x())[0] <= 5000:
-            ax.scatter(self.get_data_x()[:,plot_dims[0]], self.get_data_x()[:,plot_dims[1]], color = 'black')
-        
+            ax.scatter(self.get_data_x()[:,plot_dims[0]], self.get_data_x()[:,plot_dims[1]], color = 'snow')
+
+    def plot_scatter_radians(self, ax, plot_dims=[0,1], cat_path=None, eleph_path=None):
+        ax.add_patch(Polygon([[55 * (np.pi/180), 0], [0 * (np.pi/180), -80], [5 * (np.pi/180), 0], [30 * (np.pi/180), 80]], facecolor="green", alpha=0.2))
+        ax.add_patch(Polygon([[155 * (np.pi/180), 0],  [0 * (np.pi/180), -80], [115 * (np.pi/180), 0], [140 * (np.pi/180), 80]], facecolor="green", alpha=0.2))
+        cat_ab2 = AnnotationBbox(OffsetImage(plt.imread(cat_path), zoom=0.015), (140 * (np.pi/180) ,80), box_alignment=(1, -0.15),frameon=False)
+        ax.add_artist(cat_ab2)
+        eleph_ab2 = AnnotationBbox(OffsetImage(plt.imread(eleph_path), zoom=0.015), (30 * (np.pi/180), 80), box_alignment=(0, -0.15), frameon=False)
+        ax.add_artist(eleph_ab2)
+        if np.shape(self.get_data_x())[0] <= 5000:
+            ax.scatter(self.get_data_x()[:,plot_dims[0]] * np.pi/180, self.get_data_x()[:,plot_dims[1]], color = 'black')
+
         
     def plot_grid(self, ax, progress_colors=True, progress_max=1., depth=10, plot_dims=[0,1]):
         if self.leafnode or depth == 0:
@@ -786,8 +831,8 @@ class Tree(object):
             
             if progress_colors:
                 prog_min = 0.
-                c = plt.cm.jet((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.jet(0)
-                ax.add_patch(plt.Rectangle(mins, maxs[0] - mins[0], maxs[1] - mins[1], color=c, alpha=0.7))
+                c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
+                ax.add_patch(plt.Rectangle(mins, maxs[0] - mins[0], maxs[1] - mins[1], facecolor=c,  edgecolor='white', alpha=0.3))
             else:
                 ax.add_patch(plt.Rectangle(mins, maxs[0] - mins[0], maxs[1] - mins[1], fill=False))
                     
@@ -807,6 +852,17 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                        'progress_win_size': 50,
                                                        'progress_measure': 'abs_deriv_smooth',                                                     
                                                        'sampling_mode': {'mode':'softmax', 
+                                                                         'param':0.2,
+                                                                         'multiscale':False,
+                                                                         'volume':True}},
+                                           'cozmo': {'max_points_per_region': 10,
+                                                       'max_depth': 50,
+                                                       'split_mode': 'best_interest_diff', # TODO: change split mode to cos sim?
+                                                        # power 10 to give more weight to small differences
+                                                       'competence_measure': lambda target,reached : competence_cos_log(target, reached),
+                                                       'progress_win_size': 8,
+                                                       'progress_measure': 'abs_deriv_smooth',
+                                                       'sampling_mode': {'mode':'epsilon_greedy',
                                                                          'param':0.2,
                                                                          'multiscale':False,
                                                                          'volume':True}}})}
@@ -927,7 +983,7 @@ if __name__ == '__main__':
         plt.title('R-IAC tiling')
         riac.tree.plot(ax, True, True, True, riac.progress())
           
-        print("Max nb of children:", riac.tree.fold_up(lambda n,fl,fg:max(fl,fg), lambda leaf:leaf.children))
+        print("Max nb of children:", riac.tree.fold_up(lambda n,fl,fg:max(fl,fg), lambda leaf:leaf.n_children))
                
         print("Max leaf progress: ", riac.max_leaf_progress())
 #         import matplotlib.colorbar as cbar
@@ -1063,9 +1119,19 @@ if __name__ == '__main__':
         plt.draw()
     
         print("Sampling in max progress region: ", riac.tree.sample({'mode':'greedy', 'multiscale':True}))
-        dists, idxs = riac.tree.nn(center, 10)
+        distances, idxs = riac.tree.nn(center, 10)
         print("Nearest Neighbors:", riac.data_x[idxs])
         
         plt.ioff()
     plt.show()
-         
+
+
+
+# import matplotlib.pyplot as plt
+# fig1 = plt.figure()
+# ax = fig1.add_subplot(111, aspect='equal')
+# plt.xlabel('X')
+# plt.ylabel('Y')
+# plt.title('Tree Plot')
+# self.interest_model.tree.plot(ax)
+# plt.show()

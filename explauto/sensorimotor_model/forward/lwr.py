@@ -2,7 +2,7 @@
 
 """
 
-Locally Weigthed Regression (LWR) python implementation.
+Locally Weighted Regression (LWR) python implementation.
 
 References :
     1. C. G. Atkeson, A. W. Moore, S. Schaal, "Locally Weighted Learning for Control",
@@ -67,7 +67,7 @@ class LWLRForwardModel(ForwardModel):
         @param dim_x    the input dimension
         @param dim_y    the output dimension
         @param sigma    sigma for the gaussian distance.
-        @param nn       the number of nearest neighbors to consider for regression.
+        @param k       the number of nearest neighbors to consider for regression.
         """
         self.k = k
         ForwardModel.__init__(self, dim_x, dim_y, sigma=sigma, k=self.k, **kwargs)
@@ -96,12 +96,12 @@ class LWLRForwardModel(ForwardModel):
         sigma_sq = self.sigma_sq if sigma is None else sigma*sigma
         k = k or self.k
 
-        dists, index = self.dataset.nn_x(xq, k=k)
+        neighbor_distances, neighbor_indexes = self.dataset.nn_x(xq, k=k)
 
-        w = self._weights(dists, index, sigma_sq)
+        w = self._weights(neighbor_distances, neighbor_indexes, sigma_sq)
         Xq  = np.array(np.append([1.0], xq), ndmin = 2)
-        X   = np.array([self.dataset.get_x_padded(i) for i in index])
-        Y = np.array([self.dataset.get_y(i) for i in index])
+        X   = np.array([self.dataset.get_x_padded(i) for i in neighbor_indexes])
+        Y = np.array([self.dataset.get_y(i) for i in neighbor_indexes])
         
         W   = np.diag(w)
         WX  = np.dot(W, X)
@@ -133,9 +133,9 @@ class LWLRForwardModel(ForwardModel):
         sigma_sq = self.sigma_sq if sigma is None else sigma*sigma
         k = k or self.k       
         
-        dists, index = self.dataset.nn_dims(q[:len(dims_x)], q[len(dims_x):], dims_x, dims_y, k=k)
+        distances, index = self.dataset.nn_dims(q[:len(dims_x)], q[len(dims_x):], dims_x, dims_y, k=k)
 
-        w = self._weights(dists, index, sigma_sq)
+        w = self._weights(distances, index, sigma_sq)
         Xq  = np.array(np.append([1.0], q), ndmin = 2)
         X   = np.array([np.append([1.0], self.dataset.get_dims(i, dims_x=dims_x, dims_y=dims_y)) for i in index])
         Y = np.array([self.dataset.get_dims(i, dims=dims_out) for i in index])
@@ -152,14 +152,14 @@ class LWLRForwardModel(ForwardModel):
 
         return Yq.ravel()
 
-    def _weights(self, dists, index, sigma_sq):
+    def _weights(self, neighbor_distances, neighbor_indexes, sigma_sq):
 
         w = np.fromiter((gaussian_kernel(d, sigma_sq)
-                         for d in dists), float, len(dists))
+                         for d in neighbor_distances), float, len(neighbor_distances))
 
         wsum = w.sum()
         if wsum == 0:
-            return 1.0/len(dists)*np.ones((len(dists),))
+            return 1.0 / len(neighbor_distances) * np.ones((len(neighbor_distances),))
         else:
             eps = wsum * 1e-10 / self.dim_x
             return np.fromiter((w_i/wsum if w_i > eps else 0.0 for w_i in w), float)
@@ -184,26 +184,26 @@ class NSLWLRForwardModel(LWLRForwardModel):
         self.k        = k or max(3, int(1.1*dim_x+1)) #
         ForwardModel.__init__(self, dim_x, dim_y, sigma = sigma, k = self.k, **kwargs)
         self.sigma_sq = sigma*sigma
-        self.sigma_t_sq = sigma_t*sigma_t
+        self.sigma_time_sq = sigma_t * sigma_t
 
-    def _weights(self, dists, index, sigma_sq):
+    def _weights(self, neighbor_distances, neighbor_indexes, sigma_sq):
 
-        w = np.fromiter((gaussian_kernel(d, sigma_sq)
-                         for d in dists), float, len(dists))
+        weights = np.fromiter((gaussian_kernel(d, sigma_sq)
+                         for d in neighbor_distances), float, len(neighbor_distances))
 
         # Weight by timestamp of samples to forget old values
-        max_index = max(index)
+        max_index = max(neighbor_indexes)
         
-        wt = np.fromiter((gaussian_kernel(max_index - idx, self.sigma_t_sq)
-                         for idx in index), float, len(dists))
-        w = w * wt
+        weights_by_timestamp = np.fromiter((gaussian_kernel(max_index - idx, self.sigma_time_sq)
+                          for idx in neighbor_indexes), float, len(neighbor_distances))
+        weights = weights * weights_by_timestamp
         
-        wsum = w.sum()
-        if wsum == 0:
-            return 1.0/len(dists)*np.ones((len(dists),))
+        weight_sum = weights.sum()
+        if weight_sum == 0:
+            return 1.0 / len(neighbor_distances) * np.ones((len(neighbor_distances),))
         else:
-            eps = wsum * 1e-10 / self.dim_x
-            return np.fromiter((w_i/wsum if w_i > eps else 0.0 for w_i in w), float)
+            eps = weight_sum * 1e-10 / self.dim_x
+            return np.fromiter((w_i/weight_sum if w_i > eps else 0.0 for w_i in weights), float)
 
 
 class ESLWLRForwardModel(LWLRForwardModel):
@@ -211,6 +211,6 @@ class ESLWLRForwardModel(LWLRForwardModel):
 
     name = 'ES-LWLR'
 
-    def _weights(self, dists, index, sigma_sq):
-        sigma_sq=(dists**2).sum()/len(dists)/2
-        return LWLRForwardModel._weights(self, dists, sigma_sq)
+    def _weights(self, neighbor_distances, neighbor_indexes, sigma_sq):
+        sigma_sq= (neighbor_distances ** 2).sum() / len(neighbor_distances) / 2
+        return LWLRForwardModel._weights(self, neighbor_distances, sigma_sq)

@@ -78,23 +78,23 @@ class NSNNInverseModel(inverse.InverseModel):
         if len(self.fwd_model.dataset) == 0:
             return [[0.0]*self.dim_x]
         else:
-            dists, index = self.fwd_model.dataset.nn_y(y, k=self.k)
-            w = self._weights(dists, index)
+            distances, index = self.fwd_model.dataset.nn_y(y, k=self.k)
+            w = self._weights(distances, index)
             idx = index[np.argmax(w)]
             return [self.fwd_model.dataset.get_x(idx)]
 
-    def _weights(self, dists, index):
+    def _weights(self, distances, index):
         w = np.fromiter((gaussian_kernel(d, self.sigma_sq)
-                         for d in dists), np.float, len(dists))
+                         for d in distances), np.float, len(distances))
 
         # Weight by timestamp of samples to forget old values
         max_index = max(index)        
         wt = np.fromiter((gaussian_kernel(max_index - idx, self.sigma_t_sq)
-                         for idx in index), np.float, len(dists))
+                         for idx in index), np.float, len(distances))
         w = w * wt    
         wsum = w.sum()
         if wsum == 0:
-            return 1.0/len(dists)*np.ones((len(dists),))
+            return 1.0 / len(distances) * np.ones((len(distances),))
         else:
             eps = wsum * 1e-10 / self.dim_x
             return np.fromiter((w_i/wsum if w_i > eps else 0.0 for w_i in w), np.float)

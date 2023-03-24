@@ -28,19 +28,19 @@ class WeightedNNForwardModel(ForwardModel):
         """
         sigma = sigma or self.sigma
         k = k or self.k
-        dists, index = self.dataset.nn_x(xq, k = k)
-        w = self._weights(dists, sigma*sigma)
+        distances, index = self.dataset.nn_x(xq, k = k)
+        w = self._weights(distances, sigma*sigma)
         return np.sum([wi*self.dataset.get_y(idx) for wi, idx in zip(w, index)], axis = 0)
 
-    def _weights(self, dists, sigma_sq):
+    def _weights(self, distances, sigma_sq):
 
         w = np.fromiter((gaussian_kernel(d/self.dim_x, sigma_sq)
-                         for d in dists), np.float)
+                         for d in distances), np.float)
 
         # We eliminate the outliers # TODO : actually reduce w and index
         wsum = w.sum()
         if wsum == 0:
-            return 1.0/len(dists)*np.ones((len(dists),))
+            return 1.0 / len(distances) * np.ones((len(distances),))
         else:
             eps = wsum * 1e-15 / self.dim_x
             return np.fromiter((w_i/wsum if w_i > eps else 0.0 for w_i in w), np.float)
@@ -53,6 +53,6 @@ class ESWNNForwardModel(WeightedNNForwardModel):
         WeightedNNForwardModel.__init__(self, *args, **kwargs)
         self.name = 'ES-WNN'
 
-    def _weights(self, dists, sigma_sq):
-        sigma_sq=(dists**2).sum()/len(dists)
-        return WeightedNNForwardModel._weights(self, dists, sigma_sq)
+    def _weights(self, distances, sigma_sq):
+        sigma_sq= (distances ** 2).sum() / len(distances)
+        return WeightedNNForwardModel._weights(self, distances, sigma_sq)

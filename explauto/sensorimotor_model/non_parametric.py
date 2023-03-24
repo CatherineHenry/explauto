@@ -105,6 +105,8 @@ sensorimotor_models = {
     # BFGS -> https://en.wikipedia.org/wiki/Broyden%E2%80%93Fletcher%E2%80%93Goldfarb%E2%80%93Shanno_algorithm
     # 'LWLR-BFGS': (NonParametric, {'default': {'fwd': 'LWLR', 'k':10, 'sigma':0.1, 'inv': 'L-BFGS-B', 'maxfun':50}}),
     # CMAES -> Covariance Matrix Adaptation Evolution Strategy
-    'LWLR-CMAES': (NonParametric, {'default': {'fwd': 'LWLR', 'k':10, 'sigma':0.1, 'inv': 'CMAES', 'cmaes_sigma':0.05, 'maxfevals':20}}),
+    'LWLR-NONE': (NonParametric, {'default': {'fwd': 'LWLR', 'k':15, 'sigma':0.1, 'inv': 'NONE'}}),
+    'NSLWLR-NONE': (NonParametric, {'default': {'fwd': 'LWLR', 'k':5, 'sigma':0.1, 'inv': 'NONE'}}),
+    'NSLWLR-CMAES': (NonParametric, {'default': {'fwd': 'NSLWLR', 'k':10, 'sigma':0.1, 'inv': 'CMAES', 'cmaes_sigma':0.05, 'maxfevals':20}}),
 
 }
