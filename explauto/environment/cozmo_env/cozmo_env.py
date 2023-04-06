@@ -56,7 +56,7 @@ class CozmoEnvironment(Environment):
         # TODO: this doesn't have a move duration. could do a duration wait + stop action if we wanted
         # self.robot.go_to_pose(Pose(m_env[0], 0, 0, angle_z=degrees(m_env[1])), relative_to_robot=True).wait_for_completed()
         self.robot.turn_in_place(degrees(m_env[0])).wait_for_completed()
-        self.robot.drive_straight(distance_mm(m_env[1]), speed_mmps(40)).wait_for_completed()
+        self.robot.drive_straight(distance_mm(m_env[1]), speed_mmps(40), should_play_anim=False).wait_for_completed()
         # self.robot.turn_in_place(angle=degrees(m_env[0]), speed=Angle(m_env[1])).wait_for_completed()
         # This allows to actually apply a motor command
         # Without having a tracker

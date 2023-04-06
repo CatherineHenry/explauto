@@ -1,4 +1,6 @@
-
+from itertools import combinations
+from sklearn.metrics.pairwise import cosine_similarity
+import copy
 
 import time
 import numpy as np
@@ -13,7 +15,7 @@ from scipy.spatial.kdtree import minkowski_distance_p
 from ..utils.utils import rand_bounds
 from ..utils.config import make_configuration
 from .interest_model import InterestModel
-from .competences import competence_exp, competence_dist, competence_cos_exp, cos_distance, competence_cos_log
+from .competences import competence_exp, competence_dist, competence_cos_exp, cos_distance, competence_cos_log, prediction_error_cos_dist_exp
 from ..utils.observer import Observable
 
 
@@ -39,10 +41,12 @@ class InterestTree(InterestModel, Observable):
             raise ValueError("WARNING: progress_win_size should be < max_points_per_region")
         
         self.data_x = None # list of target motor or sensory goals 'x'
+        self.data_y = None # list of reached sensory effect
         self.data_c = None # list of competence measures
 
         self.tree = Tree(lambda:self.data_x, 
                          np.array(self.bounds, dtype=float),
+                         lambda:self.data_y,
                          lambda:self.data_c, 
                          max_points_per_region=max_points_per_region, 
                          max_depth=max_depth,
@@ -78,12 +82,17 @@ class InterestTree(InterestModel, Observable):
         else:
             self.data_x = np.append(self.data_x, np.array([xy[self.expl_dims]]), axis=0)
 
-        comp_dist, bounded, comp_measure = self.competence_measure(xy, ms)
-        self.emit(f"[{flow_uuid}] competence", f"[comp dist: {comp_dist}, bounded: {bounded}] log cos distance between target and reached: {comp_measure}")
+        cos_sim, cos_dist, bounded_cos_dist = self.competence_measure(xy, ms)
+        self.emit(f"[{flow_uuid}] competence", f"[cos sim: {cos_sim}, cost dist: {cos_dist}] bounded cos distance between target and reached: {bounded_cos_dist}")
         if self.data_c is None:
-            self.data_c = np.array([comp_measure]) # Either prediction error or competence error
+            self.data_c = np.array([bounded_cos_dist]) # Either prediction error or competence error
         else:
-            self.data_c = np.append(self.data_c, comp_measure)
+            self.data_c = np.append(self.data_c, bounded_cos_dist)
+
+        if self.data_y is None:
+            self.data_y = np.array([ms[~np.isin(np.arange(len(ms)), self.expl_dims)]])
+        else:
+            self.data_y = np.append(self.data_y, np.array([ms[~np.isin(np.arange(len(ms)), self.expl_dims)]]), axis=0)
         self.tree.add(np.shape(self.data_x)[0] - 1)
 
 
@@ -158,7 +167,8 @@ class Tree(Observable):
     """
     def __init__(self, 
                  get_data_x, 
-                 bounds_x, 
+                 bounds_x,
+                 get_data_y,
                  get_data_c, 
                  max_points_per_region, 
                  max_depth,
@@ -171,6 +181,7 @@ class Tree(Observable):
 
         self.get_data_x = get_data_x
         self.bounds_x = np.array(bounds_x, dtype=np.float64)
+        self.get_data_y = get_data_y
         self.get_data_c = get_data_c
         self.max_points_per_region = max_points_per_region
         self.max_depth = max_depth
@@ -293,11 +304,11 @@ class Tree(Observable):
                 if tp > maxp:
                     return self.sample_bounds()
             if gp == maxp:
-                sampling_mode = self.sampling_mode
+                sampling_mode = copy.deepcopy(self.sampling_mode)
                 sampling_mode['mode'] = 'greedy'
                 return self.greater.sample(sampling_mode=sampling_mode)
             else:
-                sampling_mode = self.sampling_mode
+                sampling_mode = copy.deepcopy(self.sampling_mode)
                 sampling_mode['mode'] = 'greedy'
                 return self.lower.sample(sampling_mode=sampling_mode)
         
@@ -312,11 +323,12 @@ class Tree(Observable):
             
         """
         if epsilon > np.random.random():
-            sampling_mode = self.sampling_mode
+            sampling_mode = copy.deepcopy(self.sampling_mode)  # This was updating the class instance because reference
             sampling_mode['mode'] = 'random'
+            self.emit('sample', 'sampling random')
             return self.sample(sampling_mode=sampling_mode)
         else:
-            sampling_mode = self.sampling_mode
+            sampling_mode = copy.deepcopy(self.sampling_mode)
             sampling_mode['mode'] = 'greedy'
             return self.sample(sampling_mode=sampling_mode)
         
@@ -428,6 +440,20 @@ class Tree(Observable):
                 comp_beg = np.mean(idxs_competencies[:int(float(n_competencies)/2.)])
                 comp_end = np.mean(idxs_competencies[int(float(n_competencies)/2.):])
                 return np.abs(comp_end - comp_beg)
+            
+        elif self.progress_measure == 'bounded_smooth':
+            # absolute difference between first and last half of the window
+            if len(idxs) <= 1:
+                return 0
+            else:
+                idxs = sorted(idxs)[- self.progress_win_size:]
+                idxs_competencies = self.get_data_c()[idxs]
+                n_competencies = len(idxs_competencies)
+                comp_beg = np.mean(idxs_competencies[:int(float(n_competencies)/2.)])
+                comp_end = np.mean(idxs_competencies[int(float(n_competencies)/2.):])
+                diff = comp_end - comp_beg
+                return (diff + 1) / 4
+
         else:
             raise NotImplementedError(self.progress_measure)
         
@@ -498,9 +524,9 @@ class Tree(Observable):
             
         elif self.split_mode == 'best_interest_diff': 
             # See Baranes2012: Active Learning of Inverse Models with Intrinsically Motivated Goal Exploration in Robots
-            # if strictly more than self.max_points_per_region points: chooses between self.max_points_per_region points random split values
+            #   - if strictly more than self.max_points_per_region points: chooses between self.max_points_per_region points random split values
             # the one that maximizes card(lower)*card(greater)* progress difference between the two
-            # if equal or lower than self.max_points_per_region points: chooses between splits at the middle of each pair of consecutive points, 
+            #   - if equal or lower than self.max_points_per_region points: chooses between splits at the middle of each pair of consecutive points,
             # the one that maximizes card(lower)*card(greater)* progress difference between the two
             split_dim_data = self.get_data_x()[self.idxs, self.split_dim] # data on split dim
             split_min = min(split_dim_data)
@@ -517,7 +543,8 @@ class Tree(Observable):
                                                                                self.progress_idxs(greater_idx))
                 split_value = rand_splits[np.argmax(splits_fitness)]
                 
-            else:
+            else: # len(idxs) is same as max_points_per_region (or lower, but I don't see how we'd get in that state)
+
                 m = self.max_points_per_region - 1
                 splits = (np.sort(split_dim_data)[0:-1] + np.sort(split_dim_data)[1:]) / 2
                 splits_fitness = np.zeros(m)
@@ -527,6 +554,40 @@ class Tree(Observable):
                     splits_fitness[i] = len(lower_idx) * len(greater_idx) * abs(self.progress_idxs(lower_idx) - 
                                                                                self.progress_idxs(greater_idx))
                 split_value = splits[np.argmax(splits_fitness)]
+        elif self.split_mode == 'variance_of_cos_sim':
+            # split so variance of cos sim is maximal on either side. This will encourage splitting  "concepts" in space.
+            # (cos sim of each half should be 1)
+            split_dim_data = self.get_data_x()[self.idxs, self.split_dim] # data on split dim
+            split_min = min(split_dim_data)
+            split_max = max(split_dim_data)
+            m = self.max_points_per_region - 1  # Constant that might be tuned: number of random split values to choose between
+            # rand_splits = split_min + np.random.rand(m) * (split_max - split_min) # array of random vals above split min
+            splits = (np.sort(split_dim_data)[0:-1] + np.sort(split_dim_data)[1:]) / 2
+            splits_fitness = np.zeros(m)
+            for i in range(m):
+                lower_idx = list(np.array(self.idxs)[np.nonzero(split_dim_data <= splits[i])[0]])
+                greater_idx = list(np.array(self.idxs)[np.nonzero(split_dim_data > splits[i])[0]])
+                lower_idx_sensory = self.get_data_y()[lower_idx]
+                greater_idx_sensory = self.get_data_y()[greater_idx]
+                # calc cos sim of all sensori in lower index
+                lower_idx_combinations = list(combinations(range(len(lower_idx_sensory)), 2))
+                lower_cos_sims = []
+                for combo_idx_a, combo_idx_b in lower_idx_combinations:
+                    lower_cos_sims.append(cosine_similarity([lower_idx_sensory[combo_idx_a]], [lower_idx_sensory[combo_idx_b]]).flatten()[0])
+                lower_cos_sims_variance = 100 if len(lower_cos_sims) == 0 else np.var(lower_cos_sims)
+
+                greater_idx_combinations = list(combinations(range(len(greater_idx_sensory)), 2))
+                greater_cos_sims = []
+                for combo_idx_a, combo_idx_b in greater_idx_combinations:
+                    greater_cos_sims.append(cosine_similarity([greater_idx_sensory[combo_idx_a]], [greater_idx_sensory[combo_idx_b]]).flatten()[0])
+                greater_cos_sims_variance = 100 if len(greater_cos_sims) == 0 else  np.var(greater_cos_sims)
+
+                # splits_fitness[i] = len(lower_idx) * len(greater_idx) * abs(lower_cos_sims_variance -
+                #                                                             greater_cos_sims_variance)
+
+                splits_fitness[i] = len(lower_idx) * len(greater_idx) * (1 / (lower_cos_sims_variance + greater_cos_sims_variance))  # penalize large variance by dividing by sum. Multiply by len of each list to maximize more even splits
+            split_value = splits[np.argmax(splits_fitness)]
+
         else:
             raise NotImplementedError
 
@@ -548,7 +609,8 @@ class Tree(Observable):
         g_bounds_x[0, self.split_dim] = split_value
         
         self.lower = Tree(self.get_data_x, 
-                         l_bounds_x, 
+                         l_bounds_x,
+                         self.get_data_y,
                          self.get_data_c, 
                          self.max_points_per_region, 
                          self.max_depth - 1,
@@ -560,7 +622,8 @@ class Tree(Observable):
                          split_dim = split_dim)
         
         self.greater = Tree(self.get_data_x, 
-                            g_bounds_x, 
+                            g_bounds_x,
+                            self.get_data_y,
                             self.get_data_c, 
                             self.max_points_per_region, 
                             self.max_depth - 1,
@@ -803,8 +866,37 @@ class Tree(Observable):
 
     
     def plot_scatter(self, ax, plot_dims=[0,1], cat_path=None, eleph_path=None):
-        ax.add_patch(Polygon([[112, -10], [140, -80], [168, -10], [140, 80]], facecolor="green", alpha=0.5))
-        ax.add_patch(Polygon([[2, -10], [30, -80], [58, -10], [30, 80]], facecolor="green", alpha=0.5))
+        ax.set_xlabel("degree of rotation")
+        ax.set_ylabel("mm of linear travel (post rotation)")
+
+        cozmo_fov = 56 # in degrees
+
+        cat_nose_angle_from_0 = 146
+        cat_tail_angle_from_0 = 135
+        ax.add_patch(Polygon([
+            [(cat_tail_angle_from_0 - (cozmo_fov/4)), 80], # minimum rotation to see cat tail with maximum forward linear movement
+            [(cat_tail_angle_from_0 - (cozmo_fov/2)), 0], # minimum rotation to see cat tail with no linear travel
+            [(cat_tail_angle_from_0 - (cozmo_fov/4)), -80], # minimum rotation to see cat tail with maximum reverse linear movement
+            [(cat_nose_angle_from_0 + (cozmo_fov/4)), -80], # minimum rotation to see cat head with maximum reverse linear movement
+            [(cat_nose_angle_from_0 + (cozmo_fov/2)), 0], # minimum rotation to see cat head with no linear travel
+            [(cat_nose_angle_from_0 + (cozmo_fov/4)), 80], # minimum rotation to see cat head with maximum forward linear movement
+        ], fill=False, edgecolor='green', alpha=0.3, hatch='////'))
+
+
+        elephant_tail_angle_from_0 = 40 # from edge of back foot because tail will probably not be caught
+        elephant_nose_angle_from_0 = 15 # from tip of trunk
+        ax.add_patch(Polygon([
+            [(elephant_nose_angle_from_0 - (cozmo_fov/4)), 80], # minimum rotation to see elephant tail with maximum forward linear movement
+            [(elephant_nose_angle_from_0 - (cozmo_fov/2)), 0], # minimum rotation to see elephant tail with no linear travel
+            [(elephant_nose_angle_from_0 - (cozmo_fov/4)), -80], # minimum rotation to see elephant tail with maximum reverse linear movement
+            [(elephant_tail_angle_from_0 + (cozmo_fov/4)), -80], # minimum rotation to see elephant head with maximum reverse linear movement
+            [(elephant_tail_angle_from_0 + (cozmo_fov/2)), 0], # minimum rotation to see elephant head with no linear travel
+            [(elephant_tail_angle_from_0 + (cozmo_fov/4)), 80], # minimum rotation to see elephant head with maximum forward linear movement
+        ], fill=False, edgecolor='green', alpha=0.3, hatch='////'))
+
+
+        # ax.add_patch(Polygon([[112, -10], [140, -80], [168, -10], [140, 80]], facecolor="green", alpha=0.5))
+        # ax.add_patch(Polygon([[2, -10], [30, -80], [58, -10], [30, 80]], facecolor="green", alpha=0.5))
         cat_ab = AnnotationBbox(OffsetImage(plt.imread(cat_path), zoom=0.015), (140, 80), box_alignment=(0.5, -0.15),frameon=False)
         ax.add_artist(cat_ab)
         eleph_ab = AnnotationBbox(OffsetImage(plt.imread(eleph_path), zoom=0.015), (45, 80), box_alignment=(1, -0.15), frameon=False)
@@ -812,16 +904,58 @@ class Tree(Observable):
         if np.shape(self.get_data_x())[0] <= 5000:
             ax.scatter(self.get_data_x()[:,plot_dims[0]], self.get_data_x()[:,plot_dims[1]], color = 'snow')
 
+        ax.set_xlim((-180,180))
+        ax.set_ylim((-80,80))
+
     def plot_scatter_radians(self, ax, plot_dims=[0,1], cat_path=None, eleph_path=None):
-        ax.add_patch(Polygon([[55 * (np.pi/180), 0], [0 * (np.pi/180), -80], [5 * (np.pi/180), 0], [30 * (np.pi/180), 80]], facecolor="green", alpha=0.2))
-        ax.add_patch(Polygon([[155 * (np.pi/180), 0],  [0 * (np.pi/180), -80], [115 * (np.pi/180), 0], [140 * (np.pi/180), 80]], facecolor="green", alpha=0.2))
+        # ax.patch.set_facecolor('snow')
+        # ax.patch.set_facecolor('gainsboro')
+        ax.patch.set_facecolor('#c9e6c8') # pale green. to better show off old (white) points
+
+
         cat_ab2 = AnnotationBbox(OffsetImage(plt.imread(cat_path), zoom=0.015), (140 * (np.pi/180) ,80), box_alignment=(1, -0.15),frameon=False)
         ax.add_artist(cat_ab2)
         eleph_ab2 = AnnotationBbox(OffsetImage(plt.imread(eleph_path), zoom=0.015), (30 * (np.pi/180), 80), box_alignment=(0, -0.15), frameon=False)
         ax.add_artist(eleph_ab2)
-        if np.shape(self.get_data_x())[0] <= 5000:
-            ax.scatter(self.get_data_x()[:,plot_dims[0]] * np.pi/180, self.get_data_x()[:,plot_dims[1]], color = 'black')
 
+        cozmo_fov = 56 # self.robot.camera.config.fov_x says cozmo horiz fov is 56.53 degrees
+
+        cat_nose_angle_from_0 = 146
+        cat_tail_angle_from_0 = 135
+        ax.add_patch(Polygon([ # start at the first point specified and go clockwise
+            [(cat_tail_angle_from_0 - (cozmo_fov/4))*(np.pi/180), 80], # minimum rotation to see cat tail with maximum forward linear movement
+            [(cat_tail_angle_from_0 - (cozmo_fov/2))*(np.pi/180), 0], # minimum rotation to see cat tail with no linear travel
+            [(cat_tail_angle_from_0 - (cozmo_fov/4))*(np.pi/180), -80], # minimum rotation to see cat tail with maximum reverse linear movement
+            [(cat_nose_angle_from_0 + (cozmo_fov/4))*(np.pi/180), -80], # minimum rotation to see cat head with maximum reverse linear movement
+            [(cat_nose_angle_from_0 + (cozmo_fov/2))*(np.pi/180), 0], # minimum rotation to see cat head with no linear travel
+            [(cat_nose_angle_from_0 + (cozmo_fov/4))*(np.pi/180), 80], # minimum rotation to see cat head with maximum forward linear movement
+            [(cat_nose_angle_from_0) * (np.pi/180), 1000], # dummy point to fill in space (only neccessary for polar plot)
+        ], facecolor="green", alpha=0.5))
+
+        elephant_tail_angle_from_0 = 40 # from edge of back foot because tail will probably not be caught
+        elephant_nose_angle_from_0 = 15 # from tip of trunk
+        ax.add_patch(Polygon([ # start at the first point specified and go clockwise
+            [(elephant_nose_angle_from_0 - (cozmo_fov/4))*(np.pi/180), 80], # minimum rotation to see elephant tail with maximum forward linear movement
+            [(elephant_nose_angle_from_0 - (cozmo_fov/2))*(np.pi/180), 0], # minimum rotation to see elephant tail with no linear travel
+            [(elephant_nose_angle_from_0 - (cozmo_fov/4))*(np.pi/180), -80], # minimum rotation to see elephant tail with maximum reverse linear movement
+            [(elephant_tail_angle_from_0 + (cozmo_fov/4))*(np.pi/180), -80], # minimum rotation to see elephant head with maximum reverse linear movement
+            [(elephant_tail_angle_from_0 + (cozmo_fov/2))*(np.pi/180), 0], # minimum rotation to see elephant head with no linear travel
+            [(elephant_tail_angle_from_0 + (cozmo_fov/4))*(np.pi/180), 80], # minimum rotation to see elephant head with maximum forward linear movement
+            [(elephant_nose_angle_from_0)*(np.pi/180), 1000], # dummy point to fill in space (only neccessary for polar plot)
+        ], facecolor="green", alpha=0.5))
+
+
+        # ax.add_patch(Polygon([[55 * (np.pi/180), 0], [0 * (np.pi/180), -80], [5 * (np.pi/180), 0], [30 * (np.pi/180), 80]], facecolor="green", alpha=0.3))
+        # ax.add_patch(Polygon([[155 * (np.pi/180), 0],  [0 * (np.pi/180), -80], [115 * (np.pi/180), 0], [140 * (np.pi/180), 80]], facecolor="green", alpha=0.3))
+
+        index_hue = (np.arange(len(self.get_data_x()))+1)/len(self.get_data_x())
+        if np.shape(self.get_data_x())[0] <= 5000:
+            ax.scatter(self.get_data_x()[:,plot_dims[0]] * np.pi/180, self.get_data_x()[:,plot_dims[1]], alpha=index_hue, color = 'black')
+
+        ax.set_thetagrids(range(0, 360, 45), (0, 45, 90, 135, 180, -135, -90, -45))
+        ax.set_rmax(80.0)
+        ax.set_rmin(-80.0)
+        ax.set_rlabel_position(-30)
         
     def plot_grid(self, ax, progress_colors=True, progress_max=1., depth=10, plot_dims=[0,1]):
         if self.leafnode or depth == 0:
@@ -832,7 +966,7 @@ class Tree(Observable):
             if progress_colors:
                 prog_min = 0.
                 c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
-                ax.add_patch(plt.Rectangle(mins, maxs[0] - mins[0], maxs[1] - mins[1], facecolor=c,  edgecolor='white', alpha=0.3))
+                ax.add_patch(plt.Rectangle(mins, maxs[0] - mins[0], maxs[1] - mins[1], facecolor=c,  edgecolor='white', alpha=0.7))
             else:
                 ax.add_patch(plt.Rectangle(mins, maxs[0] - mins[0], maxs[1] - mins[1], fill=False))
                     
@@ -855,15 +989,15 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                          'param':0.2,
                                                                          'multiscale':False,
                                                                          'volume':True}},
-                                           'cozmo': {'max_points_per_region': 10,
+                                           'cozmo': {'max_points_per_region': 20, # twenty seems good so far
                                                        'max_depth': 50,
-                                                       'split_mode': 'best_interest_diff', # TODO: change split mode to cos sim?
+                                                       'split_mode': 'variance_of_cos_sim', # TODO: change split mode to cos sim?
                                                         # power 10 to give more weight to small differences
-                                                       'competence_measure': lambda target,reached : competence_cos_log(target, reached),
+                                                       'competence_measure': lambda target,reached : prediction_error_cos_dist_exp(target, reached),
                                                        'progress_win_size': 8,
                                                        'progress_measure': 'abs_deriv_smooth',
                                                        'sampling_mode': {'mode':'epsilon_greedy',
-                                                                         'param':0.2,
+                                                                         'param':0.1,
                                                                          'multiscale':False,
                                                                          'volume':True}}})}
 

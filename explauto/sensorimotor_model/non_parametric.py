@@ -106,7 +106,7 @@ sensorimotor_models = {
     # 'LWLR-BFGS': (NonParametric, {'default': {'fwd': 'LWLR', 'k':10, 'sigma':0.1, 'inv': 'L-BFGS-B', 'maxfun':50}}),
     # CMAES -> Covariance Matrix Adaptation Evolution Strategy
     'LWLR-NONE': (NonParametric, {'default': {'fwd': 'LWLR', 'k':15, 'sigma':0.1, 'inv': 'NONE'}}),
-    'NSLWLR-NONE': (NonParametric, {'default': {'fwd': 'LWLR', 'k':5, 'sigma':0.1, 'inv': 'NONE'}}),
+    'NSLWLR-NONE': (NonParametric, {'default': {'fwd': 'LWLR', 'k':8, 'sigma':0.1, 'inv': 'NONE'}}),
     'NSLWLR-CMAES': (NonParametric, {'default': {'fwd': 'NSLWLR', 'k':10, 'sigma':0.1, 'inv': 'CMAES', 'cmaes_sigma':0.05, 'maxfevals':20}}),
 
 }
