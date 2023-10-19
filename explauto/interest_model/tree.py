@@ -957,9 +957,9 @@ class Tree(Observable):
         ax.set_rmin(-80.0)
         ax.set_rlabel_position(-30)
         
-    def plot_grid(self, ax, progress_colors=True, progress_max=1., depth=10, plot_dims=[0,1], concepts=None):
-        if concepts is None:
-            concepts = []
+    def plot_grid(self, ax, progress_colors=True, progress_max=1., depth=10, plot_dims=[0,1], category_labels=None):
+        if category_labels is None:
+            category_labels = []
         if self.leafnode or depth == 0:
         
             mins = self.bounds_x[0,plot_dims]
@@ -969,15 +969,15 @@ class Tree(Observable):
                 prog_min = 0.
                 c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
                 ax.add_patch(plt.Rectangle(mins, maxs[0] - mins[0], maxs[1] - mins[1], facecolor=c,  edgecolor='white', alpha=0.7))
-                ax.annotate(len(concepts), mins, color='#8dd17d', weight='bold', fontsize=15, ha='left', va='baseline')
+                ax.annotate(len(category_labels), mins, color='#8dd17d', weight='bold', fontsize=15, ha='left', va='baseline')
             else:
                 ax.add_patch(plt.Rectangle(mins, maxs[0] - mins[0], maxs[1] - mins[1], fill=False))
                     
         else:
-            concepts.append(len(concepts))
-            self.lower.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims, concepts)
-            concepts.append(len(concepts))
-            self.greater.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims, concepts)
+            category_labels.append(len(category_labels))
+            self.lower.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims, category_labels)
+            category_labels.append(len(category_labels))
+            self.greater.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims, category_labels)
 
 
 
