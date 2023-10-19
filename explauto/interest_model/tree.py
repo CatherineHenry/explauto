@@ -831,7 +831,7 @@ class Tree(Observable):
                         
                 
             
-    def plot(self, ax, ax2=None, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=10, plot_dims=[0,1]):
+    def plot(self, ax, ax2=None, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=30, plot_dims=[0,1], cat_path='./retico/misc/cat_icon.png', eleph_path = './retico/misc/elephant_icon.png'):
         """
         Plot a projection on 2D of the Tree.
         
@@ -853,8 +853,8 @@ class Tree(Observable):
         
         """
         ax.clear()
-        cat_path = './retico/misc/cat_icon.png'
-        eleph_path = './retico/misc/elephant_icon.png'
+        # cat_path = './retico/misc/cat_icon.png'
+        # eleph_path = './retico/misc/elephant_icon.png'
         if grid:
             self.plot_grid(ax, progress_colors, progress_max, depth, plot_dims)
         if scatter and self.get_data_x() is not None:
@@ -880,7 +880,7 @@ class Tree(Observable):
             [(cat_nose_angle_from_0 + (cozmo_fov/4)), -80], # minimum rotation to see cat head with maximum reverse linear movement
             [(cat_nose_angle_from_0 + (cozmo_fov/2)), 0], # minimum rotation to see cat head with no linear travel
             [(cat_nose_angle_from_0 + (cozmo_fov/4)), 80], # minimum rotation to see cat head with maximum forward linear movement
-        ], fill=False, edgecolor='green', alpha=0.3, hatch='////'))
+        ], fill=False,  edgecolor='#8aeb3f', alpha=0.3, hatch='xxx'))
 
 
         elephant_tail_angle_from_0 = 40 # from edge of back foot because tail will probably not be caught
@@ -892,7 +892,7 @@ class Tree(Observable):
             [(elephant_tail_angle_from_0 + (cozmo_fov/4)), -80], # minimum rotation to see elephant head with maximum reverse linear movement
             [(elephant_tail_angle_from_0 + (cozmo_fov/2)), 0], # minimum rotation to see elephant head with no linear travel
             [(elephant_tail_angle_from_0 + (cozmo_fov/4)), 80], # minimum rotation to see elephant head with maximum forward linear movement
-        ], fill=False, edgecolor='green', alpha=0.3, hatch='////'))
+        ], fill=False,  edgecolor='#8aeb3f', alpha=0.3, hatch='xxx'))
 
 
         # ax.add_patch(Polygon([[112, -10], [140, -80], [168, -10], [140, 80]], facecolor="green", alpha=0.5))
@@ -957,7 +957,9 @@ class Tree(Observable):
         ax.set_rmin(-80.0)
         ax.set_rlabel_position(-30)
         
-    def plot_grid(self, ax, progress_colors=True, progress_max=1., depth=10, plot_dims=[0,1]):
+    def plot_grid(self, ax, progress_colors=True, progress_max=1., depth=10, plot_dims=[0,1], concepts=None):
+        if concepts is None:
+            concepts = []
         if self.leafnode or depth == 0:
         
             mins = self.bounds_x[0,plot_dims]
@@ -967,14 +969,17 @@ class Tree(Observable):
                 prog_min = 0.
                 c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
                 ax.add_patch(plt.Rectangle(mins, maxs[0] - mins[0], maxs[1] - mins[1], facecolor=c,  edgecolor='white', alpha=0.7))
+                ax.annotate(len(concepts), mins, color='#8dd17d', weight='bold', fontsize=15, ha='left', va='baseline')
             else:
                 ax.add_patch(plt.Rectangle(mins, maxs[0] - mins[0], maxs[1] - mins[1], fill=False))
                     
         else:
-            self.lower.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims)
-            self.greater.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims)
+            concepts.append(len(concepts))
+            self.lower.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims, concepts)
+            concepts.append(len(concepts))
+            self.greater.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims, concepts)
 
-    
+
 
 
 
