@@ -828,10 +828,11 @@ class Tree(Observable):
         return f_leaf(self) if self.leafnode else f_inter(self,
                                                           self.lower.fold_up(f_inter, f_leaf), 
                                                           self.greater.fold_up(f_inter, f_leaf))
-                        
-                
-            
-    def plot(self, ax, ax2=None, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=30, plot_dims=[0,1], cat_path='./retico/misc/cat_icon.png', eleph_path = './retico/misc/elephant_icon.png'):
+
+
+
+
+    def plot(self, ax, ax2=None, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=30, plot_dims=[0,1], plot_objects=None): #cat_path='./retico/misc/cat_icon.png', eleph_path = './retico/misc/elephant_icon.png'):
         """
         Plot a projection on 2D of the Tree.
         
@@ -855,95 +856,88 @@ class Tree(Observable):
         ax.clear()
         # cat_path = './retico/misc/cat_icon.png'
         # eleph_path = './retico/misc/elephant_icon.png'
+        if grid or scatter:
+            self.add_plot_objs(ax, plot_objects, "grid")
         if grid:
             self.plot_grid(ax, progress_colors, progress_max, depth, plot_dims)
         if scatter and self.get_data_x() is not None:
-            self.plot_scatter(ax, plot_dims, cat_path=cat_path, eleph_path=eleph_path)
+            self.plot_scatter(ax=ax, plot_dims=plot_dims)
         if ax2 is not None:
             ax2.clear()
-            self.plot_scatter_radians(ax2, cat_path=cat_path, eleph_path=eleph_path)
+            self.add_plot_objs(ax2, plot_objects, "radial")
+            self.plot_scatter_radians(ax=ax2)
 
 
-    
-    def plot_scatter(self, ax, plot_dims=[0,1], cat_path=None, eleph_path=None):
+    def add_plot_objs(self, ax, plot_objects, plot_type):
+        if plot_objects is None:
+            plot_objects = []
+
+        max_forward_linear_travel = 80
+        max_reverse_linear_travel = -80
+
+        cozmo_fov = 56  # self.robot.camera.config.fov_x says cozmo horiz fov is 56.53 degrees
+
+        if plot_type == "grid":
+            for plot_obj in plot_objects:
+
+                ax.add_patch(Polygon([
+                    [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see right of obj with maximum forward linear movement
+                    [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/2)), 0],  # minimum rotation to see right of obj with no linear travel
+                    [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see right of obj with maximum reverse linear movement
+                    [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see left of obj with maximum reverse linear movement
+                    [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/2)), 0], # minimum rotation to see left of obj with no linear travel
+                    [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see left of obj with maximum forward linear movement
+                ], fill=False,  edgecolor='#8aeb3f', alpha=0.3, hatch='xxx'))
+
+                obj_ab = AnnotationBbox(OffsetImage(plot_obj.image, zoom=0.015), (plot_obj.angle_from_0_avg, max_forward_linear_travel), box_alignment=(0.5, -0.15), frameon=False)
+                ax.add_artist(obj_ab)
+
+            # ax.add_patch(Polygon([[112, -10], [140, -80], [168, -10], [140, 80]], facecolor="green", alpha=0.5))
+            # ax.add_patch(Polygon([[2, -10], [30, -80], [58, -10], [30, 80]], facecolor="green", alpha=0.5))
+            ax.set_xlim((-180,180))
+            ax.set_ylim((max_reverse_linear_travel, max_forward_linear_travel))
+
+        elif plot_type == "radial":
+
+            for plot_obj in plot_objects:
+
+                ax.add_patch(Polygon([
+                    [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4))*(np.pi/180), max_forward_linear_travel], # minimum rotation to see right of obj with maximum forward linear movement
+                    [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/2))*(np.pi/180), 0],  # minimum rotation to see right of obj with no linear travel
+                    [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4))*(np.pi/180), max_reverse_linear_travel], # minimum rotation to see right of obj with maximum reverse linear movement
+                    [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4))*(np.pi/180), max_reverse_linear_travel], # minimum rotation to see left of obj with maximum reverse linear movement
+                    [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/2))*(np.pi/180), 0], # minimum rotation to see left of obj with no linear travel
+                    [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4))*(np.pi/180), max_forward_linear_travel], # minimum rotation to see left of obj with maximum forward linear movement
+                    [(plot_obj.leftmost_angle_from_0) * (np.pi/180), 1000], # dummy point to fill in space (only necessary for polar plot)
+                ], facecolor="green", alpha=0.5))
+
+                box_alignment_vert_direction = 4 if plot_obj.leftmost_angle_from_0 < 0 or plot_obj.rightmost_angle_from_0 < 0 else -1 # positive shifts image down, neg shifts image up
+                obj_ab = AnnotationBbox(OffsetImage(plot_obj.image, zoom=0.015), (plot_obj.angle_from_0_avg * (np.pi/180), max_forward_linear_travel), box_alignment=(0.5, 0.15 * box_alignment_vert_direction), frameon=False)
+                ax.add_artist(obj_ab)
+
+
+    def plot_scatter(self, ax, plot_dims=[0,1]):
+
         ax.set_xlabel("degree of rotation")
         ax.set_ylabel("mm of linear travel (post rotation)")
 
-        cozmo_fov = 56 # in degrees
 
-        cat_nose_angle_from_0 = 146
-        cat_tail_angle_from_0 = 135
-        ax.add_patch(Polygon([
-            [(cat_tail_angle_from_0 - (cozmo_fov/4)), 80], # minimum rotation to see cat tail with maximum forward linear movement
-            [(cat_tail_angle_from_0 - (cozmo_fov/2)), 0], # minimum rotation to see cat tail with no linear travel
-            [(cat_tail_angle_from_0 - (cozmo_fov/4)), -80], # minimum rotation to see cat tail with maximum reverse linear movement
-            [(cat_nose_angle_from_0 + (cozmo_fov/4)), -80], # minimum rotation to see cat head with maximum reverse linear movement
-            [(cat_nose_angle_from_0 + (cozmo_fov/2)), 0], # minimum rotation to see cat head with no linear travel
-            [(cat_nose_angle_from_0 + (cozmo_fov/4)), 80], # minimum rotation to see cat head with maximum forward linear movement
-        ], fill=False,  edgecolor='#8aeb3f', alpha=0.3, hatch='xxx'))
-
-
-        elephant_tail_angle_from_0 = 40 # from edge of back foot because tail will probably not be caught
-        elephant_nose_angle_from_0 = 15 # from tip of trunk
-        ax.add_patch(Polygon([
-            [(elephant_nose_angle_from_0 - (cozmo_fov/4)), 80], # minimum rotation to see elephant tail with maximum forward linear movement
-            [(elephant_nose_angle_from_0 - (cozmo_fov/2)), 0], # minimum rotation to see elephant tail with no linear travel
-            [(elephant_nose_angle_from_0 - (cozmo_fov/4)), -80], # minimum rotation to see elephant tail with maximum reverse linear movement
-            [(elephant_tail_angle_from_0 + (cozmo_fov/4)), -80], # minimum rotation to see elephant head with maximum reverse linear movement
-            [(elephant_tail_angle_from_0 + (cozmo_fov/2)), 0], # minimum rotation to see elephant head with no linear travel
-            [(elephant_tail_angle_from_0 + (cozmo_fov/4)), 80], # minimum rotation to see elephant head with maximum forward linear movement
-        ], fill=False,  edgecolor='#8aeb3f', alpha=0.3, hatch='xxx'))
-
-
-        # ax.add_patch(Polygon([[112, -10], [140, -80], [168, -10], [140, 80]], facecolor="green", alpha=0.5))
-        # ax.add_patch(Polygon([[2, -10], [30, -80], [58, -10], [30, 80]], facecolor="green", alpha=0.5))
-        cat_ab = AnnotationBbox(OffsetImage(plt.imread(cat_path), zoom=0.015), (140, 80), box_alignment=(0.5, -0.15),frameon=False)
-        ax.add_artist(cat_ab)
-        eleph_ab = AnnotationBbox(OffsetImage(plt.imread(eleph_path), zoom=0.015), (45, 80), box_alignment=(1, -0.15), frameon=False)
-        ax.add_artist(eleph_ab)
+        # plot points on figure
         if np.shape(self.get_data_x())[0] <= 5000:
             ax.scatter(self.get_data_x()[:,plot_dims[0]], self.get_data_x()[:,plot_dims[1]], color = 'snow')
 
-        ax.set_xlim((-180,180))
-        ax.set_ylim((-80,80))
 
-    def plot_scatter_radians(self, ax, plot_dims=[0,1], cat_path=None, eleph_path=None):
+
+    def plot_scatter_radians(self, ax, plot_dims=[0,1]):
         # ax.patch.set_facecolor('snow')
         # ax.patch.set_facecolor('gainsboro')
         ax.patch.set_facecolor('#c9e6c8') # pale green. to better show off old (white) points
 
 
-        cat_ab2 = AnnotationBbox(OffsetImage(plt.imread(cat_path), zoom=0.015), (140 * (np.pi/180) ,80), box_alignment=(1, -0.15),frameon=False)
-        ax.add_artist(cat_ab2)
-        eleph_ab2 = AnnotationBbox(OffsetImage(plt.imread(eleph_path), zoom=0.015), (30 * (np.pi/180), 80), box_alignment=(0, -0.15), frameon=False)
-        ax.add_artist(eleph_ab2)
-
-        cozmo_fov = 56 # self.robot.camera.config.fov_x says cozmo horiz fov is 56.53 degrees
-
-        cat_nose_angle_from_0 = 146
-        cat_tail_angle_from_0 = 135
-        ax.add_patch(Polygon([ # start at the first point specified and go clockwise
-            [(cat_tail_angle_from_0 - (cozmo_fov/4))*(np.pi/180), 80], # minimum rotation to see cat tail with maximum forward linear movement
-            [(cat_tail_angle_from_0 - (cozmo_fov/2))*(np.pi/180), 0], # minimum rotation to see cat tail with no linear travel
-            [(cat_tail_angle_from_0 - (cozmo_fov/4))*(np.pi/180), -80], # minimum rotation to see cat tail with maximum reverse linear movement
-            [(cat_nose_angle_from_0 + (cozmo_fov/4))*(np.pi/180), -80], # minimum rotation to see cat head with maximum reverse linear movement
-            [(cat_nose_angle_from_0 + (cozmo_fov/2))*(np.pi/180), 0], # minimum rotation to see cat head with no linear travel
-            [(cat_nose_angle_from_0 + (cozmo_fov/4))*(np.pi/180), 80], # minimum rotation to see cat head with maximum forward linear movement
-            [(cat_nose_angle_from_0) * (np.pi/180), 1000], # dummy point to fill in space (only neccessary for polar plot)
-        ], facecolor="green", alpha=0.5))
-
-        elephant_tail_angle_from_0 = 40 # from edge of back foot because tail will probably not be caught
-        elephant_nose_angle_from_0 = 15 # from tip of trunk
-        ax.add_patch(Polygon([ # start at the first point specified and go clockwise
-            [(elephant_nose_angle_from_0 - (cozmo_fov/4))*(np.pi/180), 80], # minimum rotation to see elephant tail with maximum forward linear movement
-            [(elephant_nose_angle_from_0 - (cozmo_fov/2))*(np.pi/180), 0], # minimum rotation to see elephant tail with no linear travel
-            [(elephant_nose_angle_from_0 - (cozmo_fov/4))*(np.pi/180), -80], # minimum rotation to see elephant tail with maximum reverse linear movement
-            [(elephant_tail_angle_from_0 + (cozmo_fov/4))*(np.pi/180), -80], # minimum rotation to see elephant head with maximum reverse linear movement
-            [(elephant_tail_angle_from_0 + (cozmo_fov/2))*(np.pi/180), 0], # minimum rotation to see elephant head with no linear travel
-            [(elephant_tail_angle_from_0 + (cozmo_fov/4))*(np.pi/180), 80], # minimum rotation to see elephant head with maximum forward linear movement
-            [(elephant_nose_angle_from_0)*(np.pi/180), 1000], # dummy point to fill in space (only neccessary for polar plot)
-        ], facecolor="green", alpha=0.5))
-
+        # cozmo_fov = 56  # self.robot.camera.config.fov_x says cozmo horiz fov is 56.53 degrees
+        # max_forward_linear_travel = 80
+        # max_reverse_linear_travel = -80
+        #
 
         # ax.add_patch(Polygon([[55 * (np.pi/180), 0], [0 * (np.pi/180), -80], [5 * (np.pi/180), 0], [30 * (np.pi/180), 80]], facecolor="green", alpha=0.3))
         # ax.add_patch(Polygon([[155 * (np.pi/180), 0],  [0 * (np.pi/180), -80], [115 * (np.pi/180), 0], [140 * (np.pi/180), 80]], facecolor="green", alpha=0.3))
