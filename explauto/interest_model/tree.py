@@ -889,7 +889,7 @@ class Tree(Observable):
                     [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see left of obj with maximum forward linear movement
                 ], fill=False,  edgecolor='#8aeb3f', alpha=0.3, hatch='xxx'))
 
-                obj_ab = AnnotationBbox(OffsetImage(plot_obj.image, zoom=0.015), (plot_obj.angle_from_0_avg, max_forward_linear_travel), box_alignment=(0.5, -0.15), frameon=False)
+                obj_ab = AnnotationBbox(OffsetImage(plot_obj.image, resample=True, zoom=0.015), (plot_obj.angle_from_0_avg, max_forward_linear_travel), box_alignment=(0.5, -0.15), frameon=False)
                 ax.add_artist(obj_ab)
 
             # ax.add_patch(Polygon([[112, -10], [140, -80], [168, -10], [140, 80]], facecolor="green", alpha=0.5))
@@ -902,17 +902,17 @@ class Tree(Observable):
             for plot_obj in plot_objects:
 
                 ax.add_patch(Polygon([
-                    [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4))*(np.pi/180), max_forward_linear_travel], # minimum rotation to see right of obj with maximum forward linear movement
-                    [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/2))*(np.pi/180), 0],  # minimum rotation to see right of obj with no linear travel
-                    [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4))*(np.pi/180), max_reverse_linear_travel], # minimum rotation to see right of obj with maximum reverse linear movement
-                    [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4))*(np.pi/180), max_reverse_linear_travel], # minimum rotation to see left of obj with maximum reverse linear movement
-                    [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/2))*(np.pi/180), 0], # minimum rotation to see left of obj with no linear travel
-                    [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4))*(np.pi/180), max_forward_linear_travel], # minimum rotation to see left of obj with maximum forward linear movement
-                    [(plot_obj.leftmost_angle_from_0) * (np.pi/180), 1000], # dummy point to fill in space (only necessary for polar plot)
+                    [np.deg2rad(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see right of obj with maximum forward linear movement
+                    [np.deg2rad(plot_obj.rightmost_angle_from_0 - (cozmo_fov/2)), 0],  # minimum rotation to see right of obj with no linear travel
+                    [np.deg2rad(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see right of obj with maximum reverse linear movement
+                    [np.deg2rad(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see left of obj with maximum reverse linear movement
+                    [np.deg2rad(plot_obj.leftmost_angle_from_0 + (cozmo_fov/2)), 0], # minimum rotation to see left of obj with no linear travel
+                    [np.deg2rad(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see left of obj with maximum forward linear movement
+                    [np.deg2rad(plot_obj.leftmost_angle_from_0), 1000], # dummy point to fill in space (only necessary for polar plot)
                 ], facecolor="green", alpha=0.5))
 
                 box_alignment_vert_direction = 4 if plot_obj.leftmost_angle_from_0 < 0 or plot_obj.rightmost_angle_from_0 < 0 else -1 # positive shifts image down, neg shifts image up
-                obj_ab = AnnotationBbox(OffsetImage(plot_obj.image, zoom=0.015), (plot_obj.angle_from_0_avg * (np.pi/180), max_forward_linear_travel), box_alignment=(0.5, 0.15 * box_alignment_vert_direction), frameon=False)
+                obj_ab = AnnotationBbox(OffsetImage(plot_obj.image, resample=True, zoom=0.015), (plot_obj.angle_from_0_avg * (np.pi/180), max_forward_linear_travel), box_alignment=(0.5, 0.15 * box_alignment_vert_direction), frameon=False)
                 ax.add_artist(obj_ab)
 
 
