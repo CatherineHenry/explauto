@@ -872,9 +872,10 @@ class Tree(Observable):
         if plot_objects is None:
             plot_objects = []
 
-        max_forward_linear_travel = 80
-        max_reverse_linear_travel = -80
-
+        max_forward_linear_travel = self.bounds_x[1][1]
+        max_reverse_linear_travel = self.bounds_x[0][1]
+        max_rotation_degree = self.bounds_x[1][0]
+        min_rotation_degree = self.bounds_x[0][0]
         cozmo_fov = 56  # self.robot.camera.config.fov_x says cozmo horiz fov is 56.53 degrees
 
         if plot_type == "grid":
@@ -889,7 +890,7 @@ class Tree(Observable):
                     [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see left of obj with maximum forward linear movement
                 ], fill=False,  edgecolor='#8aeb3f', alpha=0.3, hatch='xxx'))
 
-                obj_ab = AnnotationBbox(OffsetImage(plot_obj.image, resample=True, zoom=0.015), (plot_obj.angle_from_0_avg, max_forward_linear_travel), box_alignment=(0.5, -0.15), frameon=False)
+                obj_ab = AnnotationBbox(OffsetImage(plot_obj.grid_image, resample=True, zoom=0.015), (plot_obj.angle_from_0_avg, max_forward_linear_travel), box_alignment=(0.5, -0.15), frameon=False)
                 ax.add_artist(obj_ab)
 
             # ax.add_patch(Polygon([[112, -10], [140, -80], [168, -10], [140, 80]], facecolor="green", alpha=0.5))
@@ -898,6 +899,9 @@ class Tree(Observable):
             ax.set_ylim((max_reverse_linear_travel, max_forward_linear_travel))
 
         elif plot_type == "radial":
+
+            # mark off where points won't be selected because the recentering cube
+            ax.add_artist(Wedge((.5,.5), 0.52, max_rotation_degree, min_rotation_degree, width=0.55, transform=ax.transAxes, color='white'))
 
             for plot_obj in plot_objects:
 
@@ -911,8 +915,14 @@ class Tree(Observable):
                     [np.deg2rad(plot_obj.leftmost_angle_from_0), 1000], # dummy point to fill in space (only necessary for polar plot)
                 ], facecolor="green", alpha=0.5))
 
-                box_alignment_vert_direction = 4 if plot_obj.leftmost_angle_from_0 < 0 or plot_obj.rightmost_angle_from_0 < 0 else -1 # positive shifts image down, neg shifts image up
-                obj_ab = AnnotationBbox(OffsetImage(plot_obj.image, resample=True, zoom=0.015), (plot_obj.angle_from_0_avg * (np.pi/180), max_forward_linear_travel), box_alignment=(0.5, 0.15 * box_alignment_vert_direction), frameon=False)
+                # find box icon bounding box alignment for placement around the polar plot
+                # https://math.stackexchange.com/questions/2740317/simple-way-to-find-position-on-square-given-angle-at-center
+                bounding_box_angle = plot_obj.angle_from_0_avg + 180 # need opposite of intended angle bcz that is where we want the bounding box to "glue" to
+                magic_number = bounding_box_angle - 90 * round(bounding_box_angle/90, 0) # see stackoverflow post above for this equation
+                bounding_box_radius = 0.5 # per matplotlib docs the box ranges from 0,0 to 1,1
+                x = bounding_box_radius * cos(radians(bounding_box_angle))/cos(radians(magic_number)) + bounding_box_radius
+                y = bounding_box_radius * sin(radians(bounding_box_angle))/cos(radians(magic_number)) + bounding_box_radius
+                obj_ab = AnnotationBbox(OffsetImage(plot_obj.polar_image, resample=True, zoom=0.015), (plot_obj.angle_from_0_avg * (np.pi/180), max_forward_linear_travel), box_alignment=(x,y), frameon=False)
                 ax.add_artist(obj_ab)
 
 
