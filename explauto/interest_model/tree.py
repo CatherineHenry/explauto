@@ -1,4 +1,8 @@
 from itertools import combinations
+from math import cos, sin, radians
+
+from typing import List
+
 from sklearn.metrics.pairwise import cosine_similarity
 import copy
 
@@ -9,7 +13,7 @@ import matplotlib.pyplot as plt
 from heapq import heappop, heappush
 
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
-from matplotlib.patches import Polygon
+from matplotlib.patches import Polygon, Wedge
 from scipy.spatial.kdtree import minkowski_distance_p
 
 from ..utils.utils import rand_bounds
