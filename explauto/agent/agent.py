@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class Agent(Observable):
-    def __init__(self, conf, sm_model, im_model, n_bootstrap=0, context_mode=None):
+    def __init__(self, conf, sm_model, im_model, n_bootstrap=0, execution_uuid = None, execution_date_timestamp = None, context_mode=None, save_data=False):
         Observable.__init__(self)
         self.conf = conf
         self.ms = np.zeros(self.conf.ndims)
@@ -25,6 +25,9 @@ class Agent(Observable):
         self.n_perceived = 0
         self.n_bootstrap = n_bootstrap
         self.context_mode = context_mode
+        self.execution_uuid = execution_uuid
+        self.execution_date_timestamp = execution_date_timestamp
+        self.save_data = save_data
         
 
     @classmethod
@@ -176,6 +179,8 @@ class Agent(Observable):
         if context is None:                
             self.sensorimotor_model.update(self.m, s)
             self.interest_model.update(np.hstack((self.m, self.s)), np.hstack((self.m, s)), flow_uuid=flow_uuid)
+            if self.save_data and self.n_perceived > 0 and self.n_perceived % 5 == 0:  # Every 5 perceived
+                self.save(f"./IAC_output_data/agent_{self.execution_uuid}.pickle")
         else:
             if self.context_mode["mode"] == 'mdmsds':  
                 m = self.m[:len(self.m)//2]
@@ -192,3 +197,12 @@ class Agent(Observable):
                 self.interest_model.update(np.hstack((self.m, context, s_g)), np.hstack((self.m, context, s)))
                 
         self.n_perceived += 1
+
+    def save(self, filename, mode='pickle'):
+
+        if mode == 'pickle':
+            import pickle
+            with open(filename, 'wb') as f:
+                pickle.dump(self, f)
+        else:
+            raise NotImplementedError('{} is not implemented'.format(mode))

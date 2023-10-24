@@ -47,12 +47,14 @@ class InterestTree(InterestModel, Observable):
         self.data_x = None # list of target motor or sensory goals 'x'
         self.data_y = None # list of reached sensory effect
         self.data_c = None # list of competence measures
+        self.data_flow_uuid = None # list of flow ids
 
-        self.tree = Tree(lambda:self.data_x, 
+        self.tree = Tree(self.get_data_x,
                          np.array(self.bounds, dtype=float),
-                         lambda:self.data_y,
-                         lambda:self.data_c, 
-                         max_points_per_region=max_points_per_region, 
+                         self.get_data_y,
+                         self.get_data_flow_uuid,
+                         self.get_data_c,
+                         max_points_per_region=max_points_per_region,
                          max_depth=max_depth,
                          split_mode=split_mode, 
                          progress_win_size=progress_win_size, 
@@ -63,7 +65,18 @@ class InterestTree(InterestModel, Observable):
         InterestModel.__init__(self, expl_dims)
         Observable.__init__(self)
 
+    def get_data_x(self):
+        return self.data_x
 
+    def get_data_y(self):
+        return self.data_y
+
+    def get_data_c(self):
+        return self.data_c
+
+    def get_data_flow_uuid(self):
+        return self.data_flow_uuid
+    
     def sample(self):
         return self.tree.sample()
     
@@ -94,9 +107,15 @@ class InterestTree(InterestModel, Observable):
             self.data_c = np.append(self.data_c, bounded_cos_dist)
 
         if self.data_y is None:
-            self.data_y = np.array([ms[~np.isin(np.arange(len(ms)), self.expl_dims)]])
+            self.data_y = np.array([ms[~np.isin(np.arange(len(ms)), self.expl_dims)]]) # sensory space is the non-expl_dims of the ms
         else:
             self.data_y = np.append(self.data_y, np.array([ms[~np.isin(np.arange(len(ms)), self.expl_dims)]]), axis=0)
+
+        if self.data_flow_uuid is None: # keep track of flow uuids for training WAC classifier later (simplifies syncing the data for each subspace)
+            self.data_flow_uuid = np.array([flow_uuid])
+        else:
+            self.data_flow_uuid = np.append(self.data_flow_uuid, np.array([flow_uuid]), axis=0)
+
         self.tree.add(np.shape(self.data_x)[0] - 1)
 
 
@@ -173,6 +192,7 @@ class Tree(Observable):
                  get_data_x, 
                  bounds_x,
                  get_data_y,
+                 get_data_flow_uuid,
                  get_data_c, 
                  max_points_per_region, 
                  max_depth,
@@ -186,6 +206,7 @@ class Tree(Observable):
         self.get_data_x = get_data_x
         self.bounds_x = np.array(bounds_x, dtype=np.float64)
         self.get_data_y = get_data_y
+        self.get_data_flow_uuid = get_data_flow_uuid
         self.get_data_c = get_data_c
         self.max_points_per_region = max_points_per_region
         self.max_depth = max_depth
@@ -220,24 +241,31 @@ class Tree(Observable):
         Get the list of all nodes.
         
         """
-        return self.fold_up(lambda n, fl, fg: [n] + fl + fg, lambda leaf: [leaf])
-    
-    
+        return self.fold_up(f_inter=self.add_lower_and_greater_with_parent, f_leaf=self.leaf_as_list)
+
+    def add_lower_and_greater_with_parent(self, fl, fg):
+        return [self] + fl + fg
+
     def get_leaves(self):
         """
         Get the list of all leaves.
         
         """
-        return self.fold_up(f_inter=lambda n, fl, fg: fl + fg, f_leaf =lambda leaf: [leaf])
-    
-    
-    def depth(self):
-        """
-        Compute the depth of the tree (depth of a leaf=0).
-        
-        """
-        return self.fold_up(lambda n, fl, fg: max(fl + 1, fg + 1), lambda leaf: 0)
-    
+        return self.fold_up(f_inter=self.add_lower_and_greater, f_leaf =self.leaf_as_list)
+
+    def leaf_as_list(self, leaf):
+        return [leaf]
+    def add_lower_and_greater(self, fl, fg):
+        return fl + fg
+
+    # TODO: fix checkpointing by removing and uncomment if we need (Note: was used in test_tree script). Can't save tree w/ lambdas
+    # def depth(self):
+    #     """
+    #     Compute the depth of the tree (depth of a leaf=0).
+    #
+    #     """
+    #     return self.fold_up(f_inter=lambda n, fl, fg: max(fl + 1, fg + 1), f_leaf=lambda leaf: 0)
+    #
     
     def density(self):
         """
@@ -615,6 +643,7 @@ class Tree(Observable):
         self.lower = Tree(self.get_data_x, 
                          l_bounds_x,
                          self.get_data_y,
+                         self.get_data_flow_uuid,
                          self.get_data_c, 
                          self.max_points_per_region, 
                          self.max_depth - 1,
@@ -628,6 +657,7 @@ class Tree(Observable):
         self.greater = Tree(self.get_data_x, 
                             g_bounds_x,
                             self.get_data_y,
+                            self.get_data_flow_uuid,
                             self.get_data_c, 
                             self.max_points_per_region, 
                             self.max_depth - 1,
