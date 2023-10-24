@@ -71,7 +71,7 @@ class Databag(object):
     def _build_tree(self):
         """Build the KDTree for the observed data"""
         if not self.nn_ready:
-            self.kdtree = scipy.spatial.cKDTree(self.data)  # Catherine TODO: Can I change to ball tree here?
+            self.kdtree = scipy.spatial.cKDTree(self.data)
             self.nn_ready = True
 
     def __len__(self):
@@ -93,7 +93,7 @@ class Dataset:
 
     @classmethod
     def from_data(cls, data):
-        """Create a dataset from an array of data, infering the dimension from the datapoint"""
+        """Create a dataset from an array of data, inferring the dimension from the datapoint"""
         if len(data) == 0:
             raise ValueError("data array is empty.")
         dim_x, dim_y = len(data[0][0]), len(data[0][1])
@@ -107,7 +107,7 @@ class Dataset:
     def from_xy(cls, x_array, y_array):
         """Create a dataset from two arrays of data.
 
-        :note: infering the dimensions for the first elements of each array.
+        :note: inferring the dimensions from the first elements of each array.
         """
         if len(x_array) == 0:
             raise ValueError("data array is empty.")

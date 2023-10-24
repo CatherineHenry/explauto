@@ -26,7 +26,7 @@ class NNInverseModel(inverse.InverseModel):
     def infer_x(self, y):
         """Infer probable x from input y
 
-        @param y  the desired output for infered x.
+        @param y  the desired output for inferred x.
         """
         assert len(y) == self.fwd_model.dim_y, "Wrong dimension for y. Expected %i, got %i" % (self.fwd_model.dim_y, len(y))
         if len(self.fwd_model.dataset) == 0:
@@ -72,7 +72,7 @@ class NSNNInverseModel(inverse.InverseModel):
     def infer_x(self, y):
         """Infer probable x from input y
 
-        @param y  the desired output for infered x.
+        @param y  the desired output for inferred x.
         """
         assert len(y) == self.fwd_model.dim_y, "Wrong dimension for y. Expected %i, got %i" % (self.fwd_model.dim_y, len(y))
         if len(self.fwd_model.dataset) == 0:
