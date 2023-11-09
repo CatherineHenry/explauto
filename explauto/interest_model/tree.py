@@ -98,13 +98,16 @@ class InterestTree(InterestModel, Observable):
             self.data_x = np.array([xy[self.expl_dims]])
         else:
             self.data_x = np.append(self.data_x, np.array([xy[self.expl_dims]]), axis=0)
-
-        cos_sim, cos_dist, bounded_cos_dist = self.competence_measure(xy, ms)
-        self.emit(f"[{flow_uuid}] competence", f"[cos sim: {cos_sim}, cost dist: {cos_dist}] bounded cos distance between target and reached: {bounded_cos_dist}")
+        if self.competence_measure is prediction_error_cos_dist_exp:
+            cos_sim, cos_dist, competence = self.competence_measure(xy, ms)
+            self.emit(f"[{flow_uuid}] competence", f"[cos sim: {cos_sim}, cos dist: {cos_dist}] bounded cos distance between target and reached: {competence}")
+        elif self.competence_measure is competence_exp:
+            competence = self.competence_measure(xy, ms)
+            self.emit(f"[{flow_uuid}] competence", f"competence {competence}")
         if self.data_c is None:
-            self.data_c = np.array([bounded_cos_dist]) # Either prediction error or competence error
+            self.data_c = np.array([competence]) # Either prediction error or competence error
         else:
-            self.data_c = np.append(self.data_c, bounded_cos_dist)
+            self.data_c = np.append(self.data_c, competence)
 
         if self.data_y is None:
             self.data_y = np.array([ms[~np.isin(np.arange(len(ms)), self.expl_dims)]]) # sensory space is the non-expl_dims of the ms
@@ -910,7 +913,7 @@ class Tree(Observable):
         max_reverse_linear_travel = self.bounds_x[0][1]
         max_rotation_degree = self.bounds_x[1][0]
         min_rotation_degree = self.bounds_x[0][0]
-        cozmo_fov = 56  # self.robot.camera.config.fov_x says cozmo horiz fov is 56.53 degrees
+        cozmo_fov = 56.5  # self.robot.camera.config.fov_x says cozmo horiz fov is 56.53 degrees
 
         if plot_type == "grid":
             for plot_obj in plot_objects:
@@ -1025,7 +1028,7 @@ class Tree(Observable):
 interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 100,
                                                        'max_depth': 20,
                                                        'split_mode': 'best_interest_diff',
-                                                       'competence_measure': lambda target,reached : competence_exp(target, reached, 0., 10.),
+                                                       'competence_measure': competence_exp,
                                                        'progress_win_size': 50,
                                                        'progress_measure': 'abs_deriv_smooth',                                                     
                                                        'sampling_mode': {'mode':'softmax', 
@@ -1034,15 +1037,46 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                          'volume':True}},
                                            'cozmo': {'max_points_per_region': 20, # twenty seems good so far
                                                        'max_depth': 50,
-                                                       'split_mode': 'variance_of_cos_sim', # TODO: change split mode to cos sim?
-                                                        # power 10 to give more weight to small differences
-                                                       'competence_measure': lambda target,reached : prediction_error_cos_dist_exp(target, reached),
-                                                       'progress_win_size': 8,
-                                                       'progress_measure': 'abs_deriv_smooth',
+                                                       'split_mode': 'variance_of_cos_sim',
+                                                       'competence_measure': prediction_error_cos_dist_exp,
+                                                       'progress_win_size': 10, # TODO try 15?
+                                                       'progress_measure': 'steep_reverse_sigmoid_time_weighted',
                                                        'sampling_mode': {'mode':'epsilon_greedy',
                                                                          'param':0.1,
                                                                          'multiscale':False,
-                                                                         'volume':True}}})}
+                                                                         'volume':True}},
+                                           'cozmo_simple': {'max_points_per_region': 30, # twenty seems good so far
+                                                     'max_depth': 50,
+                                                     'split_mode': 'best_interest_diff',
+                                                     'competence_measure': competence_exp,
+                                                     'progress_win_size': 10, # TODO try 15?
+                                                     'progress_measure': 'abs_deriv_smooth',
+                                                     'sampling_mode': {'mode':'epsilon_greedy',
+                                                                       'param':0.1,
+                                                                       'multiscale':False,
+                                                                       'volume':True}},
+                                           'cozmo_cos_sim_split': {'max_points_per_region': 30, # twenty seems good so far
+                                                     'max_depth': 50,
+                                                     'split_mode': 'variance_of_cos_sim',
+                                                     'competence_measure': prediction_error_cos_dist_exp,
+                                                     'progress_win_size': 10, # TODO try 15?
+                                                     'progress_measure': 'abs_deriv_smooth',
+                                                     'sampling_mode': {'mode':'epsilon_greedy',
+                                                                       'param':0.1,
+                                                                       'multiscale':False,
+                                                                       'volume':True}},
+                                           'cozmo_cos_sim_split_and_learning_prog': {'max_points_per_region': 30, # twenty seems good so far
+                                                     'max_depth': 50,
+                                                     'split_mode': 'variance_of_cos_sim',
+                                                     'competence_measure': prediction_error_cos_dist_exp,
+                                                     'progress_win_size': 10, # TODO try 15?
+                                                     'progress_measure': 'steep_reverse_sigmoid_time_weighted',
+                                                     'sampling_mode': {'mode':'epsilon_greedy',
+                                                                       'param':0.1,
+                                                                       'multiscale':False,
+                                                                       'volume':True}},
+
+                                           })}
 
 
 

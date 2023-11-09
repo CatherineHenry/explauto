@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class Agent(Observable):
-    def __init__(self, conf, sm_model, im_model, n_bootstrap=0, execution_uuid = None, execution_date_timestamp = None, context_mode=None, save_data=False):
+    def __init__(self, conf, sm_model, im_model, n_bootstrap=0, execution_uuid = None, execution_date_timestamp = None, context_mode=None, save_data=False, experiment_name=None):
         Observable.__init__(self)
         self.conf = conf
         self.ms = np.zeros(self.conf.ndims)
@@ -28,7 +28,8 @@ class Agent(Observable):
         self.execution_uuid = execution_uuid
         self.execution_date_timestamp = execution_date_timestamp
         self.save_data = save_data
-        
+        self.experiment_name = experiment_name
+
 
     @classmethod
     def from_classes(cls,
