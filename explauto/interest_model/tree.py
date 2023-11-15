@@ -1,3 +1,5 @@
+import math
+import os
 from itertools import combinations
 from math import cos, sin, radians
 
@@ -16,6 +18,7 @@ from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.patches import Polygon, Wedge
 from scipy.spatial.kdtree import minkowski_distance_p
 
+from ..utils.plot_object import PlotObject
 from ..utils.utils import rand_bounds
 from ..utils.config import make_configuration
 from .interest_model import InterestModel
@@ -36,7 +39,8 @@ class InterestTree(InterestModel, Observable):
                  competence_measure, 
                  progress_win_size, 
                  progress_measure, 
-                 sampling_mode):
+                 sampling_mode,
+                 plot_objects=None):
         self.conf = conf
         self.bounds = self.conf.bounds[:, expl_dims]
         self.competence_measure = competence_measure
@@ -60,7 +64,8 @@ class InterestTree(InterestModel, Observable):
                          progress_win_size=progress_win_size, 
                          progress_measure=progress_measure, 
                          sampling_mode=sampling_mode,
-                         idxs=[])
+                         idxs=[],
+                         plot_objects=plot_objects)
         
         InterestModel.__init__(self, expl_dims)
         Observable.__init__(self)
@@ -204,7 +209,8 @@ class Tree(Observable):
                  progress_measure, 
                  sampling_mode, 
                  idxs=None, 
-                 split_dim=0):
+                 split_dim=0,
+                 plot_objects=None):
 
         self.get_data_x = get_data_x
         self.bounds_x = np.array(bounds_x, dtype=np.float64)
@@ -217,6 +223,8 @@ class Tree(Observable):
         self.progress_win_size = progress_win_size
         self.progress_measure = progress_measure
         self.sampling_mode = sampling_mode
+
+        self.plot_objects = [] if plot_objects is None else plot_objects
 
         self.split_dim = split_dim
         self.split_value = None
@@ -868,8 +876,7 @@ class Tree(Observable):
 
 
 
-
-    def plot(self, ax, ax2=None, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=30, plot_dims=[0,1], plot_objects=None): #cat_path='./retico/misc/cat_icon.png', eleph_path = './retico/misc/elephant_icon.png'):
+    def plot(self, ax, ax2=None, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=30, plot_dims=[0,1]):
         """
         Plot a projection on 2D of the Tree.
         
@@ -894,20 +901,18 @@ class Tree(Observable):
         # cat_path = './retico/misc/cat_icon.png'
         # eleph_path = './retico/misc/elephant_icon.png'
         if grid or scatter:
-            self.add_plot_objs(ax, plot_objects, "grid")
+            self.add_plot_objs(ax, "grid")
         if grid:
             self.plot_grid(ax, progress_colors, progress_max, depth, plot_dims)
         if scatter and self.get_data_x() is not None:
             self.plot_scatter(ax=ax, plot_dims=plot_dims)
         if ax2 is not None:
             ax2.clear()
-            self.add_plot_objs(ax2, plot_objects, "radial")
+            self.add_plot_objs(ax2, "radial")
             self.plot_scatter_radians(ax=ax2)
 
 
-    def add_plot_objs(self, ax, plot_objects, plot_type):
-        if plot_objects is None:
-            plot_objects = []
+    def add_plot_objs(self, ax, plot_type):
 
         max_forward_linear_travel = self.bounds_x[1][1]
         max_reverse_linear_travel = self.bounds_x[0][1]
@@ -916,7 +921,7 @@ class Tree(Observable):
         cozmo_fov = 56.5  # self.robot.camera.config.fov_x says cozmo horiz fov is 56.53 degrees
 
         if plot_type == "grid":
-            for plot_obj in plot_objects:
+            for plot_obj in self.plot_objects:
 
                 ax.add_patch(Polygon([
                     [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see right of obj with maximum forward linear movement
@@ -940,7 +945,7 @@ class Tree(Observable):
             # mark off where points won't be selected because the recentering cube
             ax.add_artist(Wedge((.5,.5), 0.52, max_rotation_degree, min_rotation_degree, width=0.55, transform=ax.transAxes, color='white'))
 
-            for plot_obj in plot_objects:
+            for plot_obj in self.plot_objects:
 
                 ax.add_patch(Polygon([
                     [np.deg2rad(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see right of obj with maximum forward linear movement
@@ -997,7 +1002,9 @@ class Tree(Observable):
         ax.set_rmax(80.0)
         ax.set_rmin(-80.0)
         ax.set_rlabel_position(-30)
-        
+
+
+
     def plot_grid(self, ax, progress_colors=True, progress_max=1., depth=10, plot_dims=[0,1], category_labels=None):
         if category_labels is None:
             category_labels = []
@@ -1025,6 +1032,14 @@ class Tree(Observable):
 
 
 
+
+cat_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/cat_icon.png', nose_x=4, nose_y=8, tail_x=6, tail_y=7.5)
+cat_blob_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/blob_icon.png', nose_x=4, nose_y=8, tail_x=6, tail_y=7.5)
+elephant_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/elephant_icon.png', nose_x=-13, nose_y=-2, tail_x=-2, tail_y=-13)
+elephant_blob_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/blob_icon.png', nose_x=-13, nose_y=-2, tail_x=-2, tail_y=-13)
+
+
+
 interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 100,
                                                        'max_depth': 20,
                                                        'split_mode': 'best_interest_diff',
@@ -1035,7 +1050,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                          'param':0.2,
                                                                          'multiscale':False,
                                                                          'volume':True}},
-                                           'cozmo': {'max_points_per_region': 20, # twenty seems good so far
+                                           'cozmo': {'max_points_per_region': 30, # twenty seems good so far
                                                        'max_depth': 50,
                                                        'split_mode': 'variance_of_cos_sim',
                                                        'competence_measure': prediction_error_cos_dist_exp,
@@ -1054,7 +1069,8 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                      'sampling_mode': {'mode':'epsilon_greedy',
                                                                        'param':0.1,
                                                                        'multiscale':False,
-                                                                       'volume':True}},
+                                                                       'volume':True},
+                                                            'plot_objects': [cat_blob_plot_obj, elephant_blob_plot_obj]},
                                            'cozmo_cos_sim_split': {'max_points_per_region': 30, # twenty seems good so far
                                                      'max_depth': 50,
                                                      'split_mode': 'variance_of_cos_sim',
@@ -1064,7 +1080,8 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                      'sampling_mode': {'mode':'epsilon_greedy',
                                                                        'param':0.1,
                                                                        'multiscale':False,
-                                                                       'volume':True}},
+                                                                       'volume':True},
+                                                    'plot_objects': [cat_plot_obj, elephant_plot_obj]},
                                            'cozmo_cos_sim_split_and_learning_prog': {'max_points_per_region': 30, # twenty seems good so far
                                                      'max_depth': 50,
                                                      'split_mode': 'variance_of_cos_sim',
@@ -1074,8 +1091,8 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                      'sampling_mode': {'mode':'epsilon_greedy',
                                                                        'param':0.1,
                                                                        'multiscale':False,
-                                                                       'volume':True}},
-
+                                                                       'volume':True},
+                                                    'plot_objects': [cat_plot_obj, elephant_plot_obj]},
                                            })}
 
 
