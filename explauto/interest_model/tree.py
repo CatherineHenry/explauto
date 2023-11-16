@@ -24,6 +24,7 @@ from ..utils.config import make_configuration
 from .interest_model import InterestModel
 from .competences import competence_exp, competence_dist, competence_cos_exp, cos_distance, competence_cos_log, prediction_error_cos_dist_exp
 from ..utils.observer import Observable
+from ..utils.plot_object import PlotObject
 
 
 class InterestTree(InterestModel, Observable):
@@ -900,10 +901,9 @@ class Tree(Observable):
         ax.clear()
         # cat_path = './retico/misc/cat_icon.png'
         # eleph_path = './retico/misc/elephant_icon.png'
-        if grid or scatter:
-            self.add_plot_objs(ax, "grid")
         if grid:
             self.plot_grid(ax, progress_colors, progress_max, depth, plot_dims)
+            self.add_plot_objs(ax, "grid")
         if scatter and self.get_data_x() is not None:
             self.plot_scatter(ax=ax, plot_dims=plot_dims)
         if ax2 is not None:
@@ -923,17 +923,45 @@ class Tree(Observable):
         if plot_type == "grid":
             for plot_obj in self.plot_objects:
 
-                ax.add_patch(Polygon([
-                    [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see right of obj with maximum forward linear movement
-                    [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/2)), 0],  # minimum rotation to see right of obj with no linear travel
-                    [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see right of obj with maximum reverse linear movement
-                    [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see left of obj with maximum reverse linear movement
-                    [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/2)), 0], # minimum rotation to see left of obj with no linear travel
-                    [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see left of obj with maximum forward linear movement
-                ], fill=False,  edgecolor='#8aeb3f', alpha=0.3, hatch='xxx'))
+                # The obj is straddling the x axis, so the polygon patch needs to occur on both ends of the plot meaning two patches are required
+                if (plot_obj.rightmost_angle_from_0 > 0 and plot_obj.leftmost_angle_from_0 < 0) or (plot_obj.rightmost_angle_from_0 < 0 and plot_obj.leftmost_angle_from_0 > 0):
+                    ax.add_patch(Polygon([
+                        [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see right of obj with maximum forward linear movement
+                        [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/2)), 0],  # minimum rotation to see right of obj with no linear travel
+                        [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see right of obj with maximum reverse linear movement
+                        [(180 + (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see left of obj with maximum reverse linear movement
+                        [(180 +  (cozmo_fov/2)), 0], # minimum rotation to see left of obj with no linear travel
+                        [(180 +  (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see left of obj with maximum forward linear movement
+                    ], fill=False,  edgecolor='#8aeb3f', alpha=0.3, hatch='xxx'))
 
-                obj_ab = AnnotationBbox(OffsetImage(plot_obj.grid_image, resample=True, zoom=0.015), (plot_obj.angle_from_0_avg, max_forward_linear_travel), box_alignment=(0.5, -0.15), frameon=False)
-                ax.add_artist(obj_ab)
+                    # the positive side will plot fine. The negative we need to adjust
+                    # the leftmost would be the negative angle (if cozmo is facing the negative x axis).
+                    ax.add_patch(Polygon([
+                        [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see right of obj with maximum forward linear movement
+                        [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/2)), 0],  # minimum rotation to see right of obj with no linear travel
+                        [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see right of obj with maximum reverse linear movement
+                        [(-180 - (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see left of obj with maximum reverse linear movement
+                        [(-180 - (cozmo_fov/2)), 0], # minimum rotation to see left of obj with no linear travel
+                        [(-180 - (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see left of obj with maximum forward linear movement
+                    ], fill=False,  edgecolor='#8aeb3f', alpha=0.3, hatch='xxx'))
+
+                    obj_ab_left = AnnotationBbox(OffsetImage(plot_obj.grid_image, resample=True, zoom=0.015), (plot_obj.leftmost_angle_from_0, max_forward_linear_travel), box_alignment=(0.5, -0.15), frameon=False)
+                    ax.add_artist(obj_ab_left)
+                    obj_ab_right = AnnotationBbox(OffsetImage(plot_obj.grid_image, resample=True, zoom=0.015), (plot_obj.rightmost_angle_from_0, max_forward_linear_travel), box_alignment=(0.5, -0.15), frameon=False)
+                    ax.add_artist(obj_ab_right)
+
+                else:
+                    ax.add_patch(Polygon([
+                        [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see right of obj with maximum forward linear movement
+                        [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/2)), 0],  # minimum rotation to see right of obj with no linear travel
+                        [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see right of obj with maximum reverse linear movement
+                        [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see left of obj with maximum reverse linear movement
+                        [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/2)), 0], # minimum rotation to see left of obj with no linear travel
+                        [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see left of obj with maximum forward linear movement
+                    ], fill=False,  edgecolor='#8aeb3f', alpha=0.3, hatch='xxx'))
+
+                    obj_ab = AnnotationBbox(OffsetImage(plot_obj.grid_image, resample=True, zoom=0.015), (plot_obj.angle_from_0_avg, max_forward_linear_travel), box_alignment=(0.5, -0.15), frameon=False)
+                    ax.add_artist(obj_ab)
 
             # ax.add_patch(Polygon([[112, -10], [140, -80], [168, -10], [140, 80]], facecolor="green", alpha=0.5))
             # ax.add_patch(Polygon([[2, -10], [30, -80], [58, -10], [30, 80]], facecolor="green", alpha=0.5))
@@ -1035,9 +1063,8 @@ class Tree(Observable):
 
 cat_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/cat_icon.png', nose_x=4, nose_y=8, tail_x=6, tail_y=7.5)
 cat_blob_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/blob_icon.png', nose_x=4, nose_y=8, tail_x=6, tail_y=7.5)
-elephant_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/elephant_icon.png', nose_x=-13, nose_y=-2, tail_x=-2, tail_y=-13)
-elephant_blob_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/blob_icon.png', nose_x=-13, nose_y=-2, tail_x=-2, tail_y=-13)
-
+elephant_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/elephant_icon.png', nose_x=-13, nose_y=-2, tail_x=-13, tail_y=2)
+elephant_blob_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/blob_icon.png', nose_x=-13, nose_y=-2, tail_x=-13, tail_y=2)
 
 
 interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 100,
@@ -1060,7 +1087,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                          'param':0.1,
                                                                          'multiscale':False,
                                                                          'volume':True}},
-                                           'cozmo_simple': {'max_points_per_region': 30, # twenty seems good so far
+                                           'cozmo_binary_obj_detection': {'max_points_per_region': 30, # twenty seems good so far
                                                      'max_depth': 50,
                                                      'split_mode': 'best_interest_diff',
                                                      'competence_measure': competence_exp,
@@ -1071,7 +1098,18 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                        'multiscale':False,
                                                                        'volume':True},
                                                             'plot_objects': [cat_blob_plot_obj, elephant_blob_plot_obj]},
-                                           'cozmo_cos_sim_split': {'max_points_per_region': 30, # twenty seems good so far
+                                           'cozmo_clip': {'max_points_per_region': 30, # twenty seems good so far
+                                                            'max_depth': 50,
+                                                            'split_mode': 'best_interest_diff',
+                                                            'competence_measure': competence_exp,
+                                                            'progress_win_size': 10, # TODO try 15?
+                                                            'progress_measure': 'abs_deriv_smooth',
+                                                            'sampling_mode': {'mode':'epsilon_greedy',
+                                                                              'param':0.1,
+                                                                              'multiscale':False,
+                                                                              'volume':True},
+                                                            'plot_objects': [cat_plot_obj, elephant_plot_obj]},
+                                           'cozmo_clip_cos_sim_split': {'max_points_per_region': 30, # twenty seems good so far
                                                      'max_depth': 50,
                                                      'split_mode': 'variance_of_cos_sim',
                                                      'competence_measure': prediction_error_cos_dist_exp,
@@ -1082,7 +1120,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                        'multiscale':False,
                                                                        'volume':True},
                                                     'plot_objects': [cat_plot_obj, elephant_plot_obj]},
-                                           'cozmo_cos_sim_split_and_learning_prog': {'max_points_per_region': 30, # twenty seems good so far
+                                           'cozmo_clip_cos_sim_split_and_learning_prog': {'max_points_per_region': 30, # twenty seems good so far
                                                      'max_depth': 50,
                                                      'split_mode': 'variance_of_cos_sim',
                                                      'competence_measure': prediction_error_cos_dist_exp,

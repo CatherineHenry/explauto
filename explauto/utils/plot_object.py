@@ -50,6 +50,11 @@ class PlotObject:
         self.leftmost_angle_from_0 = self.nose_angle_from_0 if self.leftmost == "nose" else self.tail_angle_from_0
         self.rightmost_angle_from_0 = self.tail_angle_from_0 if self.leftmost == "nose" else self.nose_angle_from_0
         self.angle_from_0_avg = (self.leftmost_angle_from_0 + self.rightmost_angle_from_0)/2
+        # if the obj is straddling the negative x axis, we need to adjust
+        if self.rightmost_angle_from_0 > 0 and self.leftmost_angle_from_0 < 0: # straddling -x axis
+            self.angle_from_0_avg = (abs(self.leftmost_angle_from_0) + self.rightmost_angle_from_0)/2
+        else:
+            self.angle_from_0_avg = (self.leftmost_angle_from_0 + self.rightmost_angle_from_0)/2
 
 
         # the images are flipped backwards for the grid plot because it is the rotation laid flat, weird to think about + difficult to explain atm
