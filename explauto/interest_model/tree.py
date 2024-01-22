@@ -875,13 +875,14 @@ class Tree(Observable):
         # return competence_exp(target, reached, 0, 10)
         return prediction_error_cos_dist_exp(target, reached)
 
-    def plot(self, ax, ax2=None, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=30, plot_dims=[0,1]):
+    def plot(self, ax=None, ax2=None, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=30, plot_dims=[0,1]):
         """
         Plot a projection on 2D of the Tree.
         
         Parameters
         ----------
         ax : plt axis
+        ax2: radial plot axis (todo: this could be implemented better)
         scatter : bool
             If the points are ploted
         grid : bool
@@ -896,14 +897,15 @@ class Tree(Observable):
             List of the 2 dimensions to project tree on
         
         """
-        ax.clear()
-        # cat_path = './retico/misc/cat_icon.png'
-        # eleph_path = './retico/misc/elephant_icon.png'
-        if grid:
-            self.plot_grid(ax, progress_colors, progress_max, depth, plot_dims)
-            self.add_plot_objs(ax, "grid")
-        if scatter and self.get_data_x() is not None:
-            self.plot_scatter(ax=ax, plot_dims=plot_dims)
+        if ax is not None:
+            ax.clear()
+            # cat_path = './retico/misc/cat_icon.png'
+            # eleph_path = './retico/misc/elephant_icon.png'
+            if grid:
+                self.plot_grid(ax, progress_colors, progress_max, depth, plot_dims)
+                self.add_plot_objs(ax, "grid")
+            if scatter and self.get_data_x() is not None:
+                self.plot_scatter(ax=ax, plot_dims=plot_dims)
         if ax2 is not None:
             ax2.clear()
             self.add_plot_objs(ax2, "radial")
@@ -926,8 +928,8 @@ class Tree(Observable):
                     ax.add_patch(Polygon([
                         [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see right of obj with maximum forward linear movement
                         [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/2)), 0],  # minimum rotation to see right of obj with no linear travel
-                        [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see right of obj with maximum reverse linear movement
-                        [(180 + (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see left of obj with maximum reverse linear movement
+                        [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/1.5)), max_reverse_linear_travel], # minimum rotation to see right of obj with maximum reverse linear movement
+                        [(180 + (cozmo_fov/1.5)), max_reverse_linear_travel], # minimum rotation to see left of obj with maximum reverse linear movement
                         [(180 +  (cozmo_fov/2)), 0], # minimum rotation to see left of obj with no linear travel
                         [(180 +  (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see left of obj with maximum forward linear movement
                     ], fill=False,  edgecolor='#8aeb3f', alpha=0.3, hatch='xxx'))
@@ -937,8 +939,8 @@ class Tree(Observable):
                     ax.add_patch(Polygon([
                         [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see right of obj with maximum forward linear movement
                         [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/2)), 0],  # minimum rotation to see right of obj with no linear travel
-                        [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see right of obj with maximum reverse linear movement
-                        [(-180 - (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see left of obj with maximum reverse linear movement
+                        [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/1.5)), max_reverse_linear_travel], # minimum rotation to see right of obj with maximum reverse linear movement
+                        [(-180 - (cozmo_fov/1.5)), max_reverse_linear_travel], # minimum rotation to see left of obj with maximum reverse linear movement
                         [(-180 - (cozmo_fov/2)), 0], # minimum rotation to see left of obj with no linear travel
                         [(-180 - (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see left of obj with maximum forward linear movement
                     ], fill=False,  edgecolor='#8aeb3f', alpha=0.3, hatch='xxx'))
@@ -952,8 +954,8 @@ class Tree(Observable):
                     ax.add_patch(Polygon([
                         [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see right of obj with maximum forward linear movement
                         [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/2)), 0],  # minimum rotation to see right of obj with no linear travel
-                        [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see right of obj with maximum reverse linear movement
-                        [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see left of obj with maximum reverse linear movement
+                        [(plot_obj.rightmost_angle_from_0 - (cozmo_fov/1.5)), max_reverse_linear_travel], # minimum rotation to see right of obj with maximum reverse linear movement
+                        [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/1.5)), max_reverse_linear_travel], # minimum rotation to see left of obj with maximum reverse linear movement
                         [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/2)), 0], # minimum rotation to see left of obj with no linear travel
                         [(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see left of obj with maximum forward linear movement
                     ], fill=False,  edgecolor='#8aeb3f', alpha=0.3, hatch='xxx'))
@@ -967,17 +969,18 @@ class Tree(Observable):
             ax.set_ylim((max_reverse_linear_travel, max_forward_linear_travel))
 
         elif plot_type == "radial":
-
+            ax.patch.set_facecolor('#c9e6c8') # pale green. to better show off old (white) points
             # mark off where points won't be selected because the recentering cube
-            ax.add_artist(Wedge((.5,.5), 0.52, max_rotation_degree, min_rotation_degree, width=0.55, transform=ax.transAxes, color='white'))
+            # NOTE: no longer needed with the cube elephant object
+            # ax.add_artist(Wedge((.5,.5), 0.52, max_rotation_degree, min_rotation_degree, width=0.55, transform=ax.transAxes, color='white'))
 
             for plot_obj in self.plot_objects:
 
                 ax.add_patch(Polygon([
                     [np.deg2rad(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see right of obj with maximum forward linear movement
                     [np.deg2rad(plot_obj.rightmost_angle_from_0 - (cozmo_fov/2)), 0],  # minimum rotation to see right of obj with no linear travel
-                    [np.deg2rad(plot_obj.rightmost_angle_from_0 - (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see right of obj with maximum reverse linear movement
-                    [np.deg2rad(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_reverse_linear_travel], # minimum rotation to see left of obj with maximum reverse linear movement
+                    [np.deg2rad(plot_obj.rightmost_angle_from_0 - (cozmo_fov/1.5)), max_reverse_linear_travel], # minimum rotation to see right of obj with maximum reverse linear movement
+                    [np.deg2rad(plot_obj.leftmost_angle_from_0 + (cozmo_fov/1.5)), max_reverse_linear_travel], # minimum rotation to see left of obj with maximum reverse linear movement
                     [np.deg2rad(plot_obj.leftmost_angle_from_0 + (cozmo_fov/2)), 0], # minimum rotation to see left of obj with no linear travel
                     [np.deg2rad(plot_obj.leftmost_angle_from_0 + (cozmo_fov/4)), max_forward_linear_travel], # minimum rotation to see left of obj with maximum forward linear movement
                     [np.deg2rad(plot_obj.leftmost_angle_from_0), 1000], # dummy point to fill in space (only necessary for polar plot)
@@ -996,15 +999,15 @@ class Tree(Observable):
 
     def plot_scatter(self, ax, plot_dims=[0,1]):
 
-        ax.set_xlabel("degree of rotation")
-        ax.set_ylabel("mm of linear travel (post rotation)")
+        ax.set_xlabel("Degree of Rotation")
+        ax.set_ylabel("mm Linear Travel (Post Rotation)")
 
 
         # plot points on figure
         if np.shape(self.get_data_x())[0] <= 5000:
             ax.scatter(self.get_data_x()[:,plot_dims[0]], self.get_data_x()[:,plot_dims[1]], color = 'snow')
 
-
+        ax.set_title(f'Action/Perception Turn Count: {len(self.get_data_x())}', loc='left', pad=30)
 
     def plot_scatter_radians(self, ax, plot_dims=[0,1]):
         # ax.patch.set_facecolor('snow')
@@ -1028,8 +1031,7 @@ class Tree(Observable):
         ax.set_rmax(80.0)
         ax.set_rmin(-80.0)
         ax.set_rlabel_position(-30)
-
-
+        ax.set_title(f'Action/Perception Turn Count: {len(self.get_data_x())}', loc='left')
 
     def plot_grid(self, ax, progress_colors=True, progress_max=1., depth=10, plot_dims=[0,1], category_labels=None):
         if category_labels is None:
@@ -1054,15 +1056,26 @@ class Tree(Observable):
             self.greater.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims, category_labels)
 
 
+# foal_plot_obj = PlotObject(image_path='./retico/misc/foal_icon.png', nose_x=-1, nose_y=4.5, tail_x=1.5, tail_y=4.5)
+# goat_plot_obj = PlotObject(image_path='./retico/misc/goat_icon.png', nose_x=2.3, nose_y=-3, tail_x=0.5, tail_y=-4)
+
+# cat_plot_obj = PlotObject(image_path='./retico/misc/cat_icon.png', nose_x=-8.5, nose_y=5.5, tail_x=-6.75, tail_y=6.5)
+# elephant_plot_obj = PlotObject(image_path='./retico/misc/elephant_icon.png', nose_x=11, nose_y=3, tail_x=9, tail_y=7.25)
+# elephant_plot_obj = PlotObject(image_path='./retico/misc/elephant_icon.png', nose_x=1.5, nose_y=-8, tail_x=-1.5, tail_y=-8)
+
+
+# foal_plot_obj = PlotObject(image_path='./retico/misc/foal_icon.png', nose_x=-1, nose_y=-4.5, tail_x=-1.5, tail_y=-4.6)
+# goat_plot_obj = PlotObject(image_path='./retico/misc/goat_icon.png', nose_x=0.5, nose_y=-3, tail_x=2.3, tail_y=-4)
+# self.plot_objects = [cat_plot_obj, elephant_plot_obj, foal_plot_obj, goat_plot_obj]
 
 
 
 
 
-cat_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/cat_icon.png', nose_x=4, nose_y=8, tail_x=6, tail_y=7.5)
-cat_blob_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/blob_icon.png', nose_x=4, nose_y=8, tail_x=6, tail_y=7.5)
-elephant_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/elephant_icon.png', nose_x=-13, nose_y=-2, tail_x=-13, tail_y=2)
-elephant_blob_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/blob_icon.png', nose_x=-13, nose_y=-2, tail_x=-13, tail_y=2)
+cat_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/cat_icon.png', nose_x=4, nose_y=7.5, tail_x=6, tail_y=8.5)
+cat_blob_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/blob_icon.png', nose_x=4, nose_y=7.5, tail_x=6, tail_y=8.5)
+elephant_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/elephant_icon.png', nose_x=-12.5, nose_y=-2.5, tail_x=-12.5, tail_y=2.25)
+elephant_blob_plot_obj = PlotObject(image_path=os.path.dirname(os.path.abspath(__file__)) + '/../utils/plot_icons/blob_icon.png', nose_x=-12.5, nose_y=-2.5, tail_x=-12.5, tail_y=2.25)
 
 
 interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 100,
