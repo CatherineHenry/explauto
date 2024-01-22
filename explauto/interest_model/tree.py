@@ -128,9 +128,6 @@ class InterestTree(InterestModel, Observable):
         self.tree.add(np.shape(self.data_x)[0] - 1)
 
 
-
-
-
 ## Essentially treating every node as a "tree". Leaf nodes identified by self.leafnode = True
 class Tree(Observable):
     """
@@ -448,7 +445,7 @@ class Tree(Observable):
         Competence progress of the overall tree.
         
         """
-        return self.progress_idxs(list(range(np.shape(self.get_data_x())[0] - self.progress_win_size, 
+        return self.progress_idxs(list(range(np.shape(self.get_data_x())[0] - self.progress_win_size,
                                         np.shape(self.get_data_x())[0])))
     
             
