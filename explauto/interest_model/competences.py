@@ -5,9 +5,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 def competence_dist(target, reached, dist_min=0., dist_max=1.): # target and reached are the (s,m) data so includ
     return max(- dist_max, min(- dist_min, - np.linalg.norm(target - reached)))
 
-
 def competence_exp(target, reached, dist_min=0., dist_max=1., power=1.):
-    return np.exp(power * competence_dist(target, reached, dist_min, dist_max))
     comp_dist = competence_dist(target, reached, dist_min, dist_max)
     print(f"Distance between target and reached is {comp_dist}")
     return np.exp(power * comp_dist)
