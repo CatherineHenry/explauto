@@ -611,18 +611,9 @@ class Tree(Observable):
                 lower_idx_sensory = self.get_data_y()[lower_idx]
                 greater_idx_sensory = self.get_data_y()[greater_idx]
                 # calc cos sim of all sensori in lower index
-                lower_idx_combinations = list(combinations(range(len(lower_idx_sensory)), 2))
-                lower_cos_sims = []
-                for combo_idx_a, combo_idx_b in lower_idx_combinations:
-                    lower_cos_sims.append(cosine_similarity([lower_idx_sensory[combo_idx_a]], [lower_idx_sensory[combo_idx_b]]).flatten()[0])
-                lower_cos_sims_variance = 100 if len(lower_cos_sims) == 0 else np.var(lower_cos_sims)
-
-                greater_idx_combinations = list(combinations(range(len(greater_idx_sensory)), 2))
-                greater_cos_sims = []
-                for combo_idx_a, combo_idx_b in greater_idx_combinations:
-                    greater_cos_sims.append(cosine_similarity([greater_idx_sensory[combo_idx_a]], [greater_idx_sensory[combo_idx_b]]).flatten()[0])
-                greater_cos_sims_variance = 100 if len(greater_cos_sims) == 0 else  np.var(greater_cos_sims)
-
+                # TODO: double check this func is working how I want
+                lower_cos_sims_variance = self.calc_tree_variance_of_cos_sims(lower_idx_sensory)
+                greater_cos_sims_variance = self.calc_tree_variance_of_cos_sims(greater_idx_sensory)
                 # splits_fitness[i] = len(lower_idx) * len(greater_idx) * abs(lower_cos_sims_variance -
                 #                                                             greater_cos_sims_variance)
 
@@ -676,8 +667,15 @@ class Tree(Observable):
                             self.sampling_mode, 
                             idxs = greater_idx, 
                             split_dim = split_dim)
-        
-        
+
+    def calc_tree_variance_of_cos_sims(self, tree_sensory):
+        sensory_combinations_idxs = list(combinations(range(len(tree_sensory)), 2))
+        cos_sims = []
+        for combo_idx_a, combo_idx_b in sensory_combinations_idxs:
+            cos_sims.append(cosine_similarity([tree_sensory[combo_idx_a]], [tree_sensory[combo_idx_b]]).flatten()[0])
+        cos_sims_variance = 100 if len(cos_sims) == 0 else np.var(cos_sims)
+        return cos_sims_variance
+
     # Adapted from scipy.spatial.kdtree 
     def __query(self, x, k=1, eps=0, p=2, distance_upper_bound=np.inf):
 
