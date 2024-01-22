@@ -22,7 +22,7 @@ from ..utils.plot_object import PlotObject
 from ..utils.utils import rand_bounds
 from ..utils.config import make_configuration
 from .interest_model import InterestModel
-from .competences import competence_exp, competence_dist, competence_cos_exp, cos_distance, competence_cos_log, prediction_error_cos_dist_exp
+from .competences import competence_exp, prediction_error_cos_dist_exp, competence_cos_dist_exp
 from ..utils.observer import Observable
 from ..utils.plot_object import PlotObject
 
@@ -107,7 +107,7 @@ class InterestTree(InterestModel, Observable):
         if self.competence_measure is prediction_error_cos_dist_exp:
             cos_sim, cos_dist, competence = self.competence_measure(xy, ms)
             self.emit(f"[{flow_uuid}] competence", f"[cos sim: {cos_sim}, cos dist: {cos_dist}] bounded cos distance between target and reached: {competence}")
-        elif self.competence_measure is competence_exp:
+        elif self.competence_measure is competence_exp or self.competence_measure is competence_cos_dist_exp:
             competence = self.competence_measure(xy, ms)
             self.emit(f"[{flow_uuid}] competence", f"competence {competence}")
         if self.data_c is None:
@@ -454,7 +454,7 @@ class Tree(Observable):
             
     def progress_idxs(self, idxs):
         """
-        Competence progress on points of given indexes. (lower competence the better)
+        Competence progress on points of given indexes. (higher competence is better, lower prediction error the better)
         
         """
         if self.progress_measure == 'abs_deriv_cov':
@@ -876,6 +876,9 @@ class Tree(Observable):
                                                           self.greater.fold_up(f_inter, f_leaf))
 
 
+    def competence_measure(self, target, reached):
+        # return competence_exp(target, reached, 0, 10)
+        return prediction_error_cos_dist_exp(target, reached)
 
     def plot(self, ax, ax2=None, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=30, plot_dims=[0,1]):
         """
@@ -1101,7 +1104,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                            'cozmo_clip': {'max_points_per_region': 30, # twenty seems good so far
                                                             'max_depth': 50,
                                                             'split_mode': 'best_interest_diff',
-                                                            'competence_measure': competence_exp,
+                                                            'competence_measure': competence_cos_dist_exp,
                                                             'progress_win_size': 10, # TODO try 15?
                                                             'progress_measure': 'abs_deriv_smooth',
                                                             'sampling_mode': {'mode':'epsilon_greedy',
@@ -1112,7 +1115,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                            'cozmo_clip_cos_sim_split': {'max_points_per_region': 30, # twenty seems good so far
                                                      'max_depth': 50,
                                                      'split_mode': 'variance_of_cos_sim',
-                                                     'competence_measure': prediction_error_cos_dist_exp,
+                                                     'competence_measure': competence_cos_dist_exp,
                                                      'progress_win_size': 10, # TODO try 15?
                                                      'progress_measure': 'abs_deriv_smooth',
                                                      'sampling_mode': {'mode':'epsilon_greedy',
@@ -1123,7 +1126,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                            'cozmo_clip_cos_sim_split_and_learning_prog': {'max_points_per_region': 30, # twenty seems good so far
                                                      'max_depth': 50,
                                                      'split_mode': 'variance_of_cos_sim',
-                                                     'competence_measure': prediction_error_cos_dist_exp,
+                                                     'competence_measure': competence_cos_dist_exp,
                                                      'progress_win_size': 10, # TODO try 15?
                                                      'progress_measure': 'steep_reverse_sigmoid_time_weighted',
                                                      'sampling_mode': {'mode':'epsilon_greedy',
