@@ -1,4 +1,6 @@
 import logging
+from datetime import datetime
+
 import numpy as np
 
 
@@ -10,8 +12,8 @@ from ..exceptions import ExplautoBootstrapError
 logger = logging.getLogger(__name__)
 
 
-class Agent(Observable):
-    def __init__(self, conf, sm_model, im_model, n_bootstrap=0, context_mode=None):
+class ReticoAgent(Observable):
+    def __init__(self, conf, sm_model, im_model, n_bootstrap=0, execution_uuid = None, execution_date_timestamp = None, context_mode=None, save_data=False, experiment_name=None):
         Observable.__init__(self)
         self.conf = conf
         self.ms = np.zeros(self.conf.ndims)
@@ -22,9 +24,13 @@ class Agent(Observable):
         self.interest_model = im_model
 
         # self.competence = competence
-        self.t = 0
+        self.n_perceived = 0
         self.n_bootstrap = n_bootstrap
         self.context_mode = context_mode
+        self.execution_uuid = execution_uuid
+        self.execution_date_timestamp = execution_date_timestamp
+        self.save_data = save_data
+        self.experiment_name = experiment_name
 
 
     @classmethod
@@ -70,11 +76,11 @@ class Agent(Observable):
                     if self.expl_dims == self.conf.s_dims:
                         x = np.hstack((context_ms[self.conf.m_ndims//2:], self.interest_model.sample_given_context(context_ms[self.conf.m_ndims//2:], list(range(self.conf.s_ndims//2)))))
                     else:
-                        if self.context_mode['choose_m']:
+                        if self.context_mode['choose_m']: # 'choose_m' parameter defines if the robot is allowed to choose $m$ and $\\Delta m$ at each iteration instead of only $\\Delta m$.
                             x = self.interest_model.sample()
                         else:
                             x = np.hstack((context_ms[:self.conf.m_ndims//2], self.interest_model.sample_given_context(context_ms[:self.conf.m_ndims//2], list(range(self.conf.m_ndims//2)))))                
-                elif self.context_mode["mode"] == 'mcs':
+                elif self.context_mode["mode"] == 'mcs': # The context is hidden in self.current_context, and not available to the learning agent. We thus use the \"ContextEnvironment\" class to translate this HalfLazyArm environment to an environment which is providing the context in the sensory feedback. The sensory feedback is now the concatenation of the context $c$ and the feedback of the arm $s$.\n", "We thus call this mode \"mcs\
                     x = np.hstack((context_ms, self.interest_model.sample_given_context(context_ms, list(range(self.context_mode["context_n_dims"])))))
         except ExplautoBootstrapError:
             logger.warning('Interest model not bootstrapped yet')
@@ -119,7 +125,7 @@ class Agent(Observable):
         """
         return bounds_min_max(s, self.conf.s_mins, self.conf.s_maxs)
 
-    def produce(self, context_ms=None):
+    def produce(self, context_ms=None, flow_uuid=None):
         """ Exploration (see the `Explauto introduction <about.html>`__ for more detail):
 
         * Choose a value x on expl_dims according to the interest model
@@ -132,7 +138,7 @@ class Agent(Observable):
         .. note:: This correspond to motor babbling if expl_dims=self.conf.m_dims and inf_dims=self.conf.s_dims and to  goal babbling if expl_dims=self.conf.s_dims and inf_dims=self.conf.m_dims.
         """
         if context_ms is None:
-            self.x = self.choose()
+            self.x = self.choose() # choose the next motor or sensory goal (depending on exploration space)
             self.y = self.infer(self.expl_dims, self.inf_dims, self.x)
         else:
             if self.context_mode["mode"] == 'mdmsds':
@@ -152,18 +158,19 @@ class Agent(Observable):
                 self.y = self.infer(self.expl_dims, self.inf_dims, self.x)
                 
 
+        # chosen motor goal, predicted sensory effect
         self.m, self.s = self.extract_ms(self.x, self.y)
 
         movement = self.motor_primitive(self.m)
 
-        self.emit('choice', self.x)
-        self.emit('inference', self.y)
-        self.emit('movement', movement)
+        self.emit(f'[{flow_uuid}] choice', self.x)
+        self.emit(f'[{flow_uuid}] inference', list(self.y)) # change to list so it doesn't wrap. temp solution
+        self.emit(f'[{flow_uuid}] movement', movement)
 
         return movement
 
 
-    def perceive(self, s_, context=None):
+    def perceive(self, s_, context=None, flow_uuid=None):
         """ Learning (see the `Explauto introduction <about.html>`__ for more detail):
 
         * update the sensorimotor model with (m, s)
@@ -171,10 +178,12 @@ class Agent(Observable):
           (x, y are stored in self.ms in :meth:`~explauto.agent.agent.Agent.production`)
         """
         s = self.sensory_primitive(s_)
-        self.emit('perception', s)
+        self.emit(f'[{flow_uuid}] perception', list(s))
         if context is None:                
             self.sensorimotor_model.update(self.m, s)
-            self.interest_model.update(np.hstack((self.m, self.s)), np.hstack((self.m, s)))
+            self.interest_model.update(np.hstack((self.m, self.s)), np.hstack((self.m, s)), flow_uuid=flow_uuid)
+            if self.save_data and self.n_perceived > 0 and self.n_perceived % 5 == 0:  # Every 5 perceived
+                self.save(f"./IAC_output_data/agent_{self.execution_uuid}.pickle")
         else:
             if self.context_mode["mode"] == 'mdmsds':  
                 m = self.m[:len(self.m)//2]
@@ -190,4 +199,13 @@ class Agent(Observable):
                 self.sensorimotor_model.update(self.m, np.hstack((context, s)))
                 self.interest_model.update(np.hstack((self.m, context, s_g)), np.hstack((self.m, context, s)))
                 
-        self.t += 1
+        self.n_perceived += 1
+
+    def save(self, filename, mode='pickle'):
+        self.emit(f'[{self.execution_uuid}] {datetime.now().strftime("%H:%M:%S")}', f'Saving {filename}')
+        if mode == 'pickle':
+            import pickle
+            with open(filename, 'wb') as f:
+                pickle.dump(self, f)
+        else:
+            raise NotImplementedError('{} is not implemented'.format(mode))
