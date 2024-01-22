@@ -1,9 +1,11 @@
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
+
 # Euclidean distance
 def competence_dist(target, reached, dist_min=0., dist_max=1.): # target and reached are the (s,m) data so includ
     return max(- dist_max, min(- dist_min, - np.linalg.norm(target - reached)))
+
 
 def competence_exp(target, reached, dist_min=0., dist_max=1., power=1.):
     comp_dist = competence_dist(target, reached, dist_min, dist_max)
@@ -31,6 +33,7 @@ def prediction_error_cos_dist_exp(target, reached):
     o = 2 # setting o to 2 forces a cos_dist of 2 to the highest possible error of 1
     bounded_cos = 1 - np.exp(-o * cos_dist)
     return cos_sim, cos_dist, bounded_cos
+
 
 def competence_cos_dist_exp(target, reached):
     prediction_error = prediction_error_cos_dist_exp(target, reached)
