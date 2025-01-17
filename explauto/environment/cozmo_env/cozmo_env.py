@@ -7,7 +7,7 @@ from ...utils import bounds_min_max
 from cozmo.robot import Robot
 
 
-class CozmoEnvironment(Environment):
+class CozmoEnvironment(Environment): #TODO: do  this environment in a cleaner way once I have something working
     """ 
         Explauto environment for Cozmo robots.
 
@@ -54,10 +54,14 @@ class CozmoEnvironment(Environment):
         # TODO: can we get idea of "to position" or just speed/acc and duration? maybe Pose?
         # self.robot.drive_wheels(25, 50, self.move_duration)
         # TODO: this doesn't have a move duration. could do a duration wait + stop action if we wanted
-        # self.robot.go_to_pose(Pose(m_env[1], 0, 0, angle_z=degrees(m_env[0])), relative_to_robot=False).wait_for_completed()
+        # self.robot.go_to_pose(Pose(m_env[1], 0, 0, angle_z=degrees(m_env[0])), relative_to_robot=True).wait_for_completed()
+        # relative_to_robot moves point of origin for rotation from 0,0 to the robots current pose
+        self.robot.go_to_pose(Pose(m_env[0], m_env[1], 0, angle_z=degrees(m_env[2])), relative_to_robot=False).wait_for_completed() # relative to robot redefines given (origin) pose to be relative?
         # self.robot.turn_in_place(degrees(m_env[0])).wait_for_completed()
-        self.robot.turn_in_place(degrees(m_env[0]), angle_tolerance=degrees(0), is_absolute=False, speed=Angle(2)).wait_for_completed()
-        self.robot.drive_straight(distance_mm(m_env[1]), speed_mmps(105), should_play_anim=False).wait_for_completed()
+
+
+        # self.robot.turn_in_place(degrees(m_env[0]), angle_tolerance=degrees(0), is_absolute=False, speed=Angle(2)).wait_for_completed()
+        # self.robot.drive_straight(distance_mm(m_env[1]), speed_mmps(105), should_play_anim=False).wait_for_completed()
 
         # self.robot.turn_in_place(degrees(m_env[0]), angle_tolerance=degrees(0), is_absolute=True).wait_for_completed()
         # self.robot.drive_straight(distance_mm(m_env[1]), speed_mmps(40), should_play_anim=False).wait_for_completed()
