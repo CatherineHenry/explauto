@@ -2,9 +2,9 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-# Euclidean distance
+# Euclidean distance (distance from origin)
 def competence_dist(target, reached, dist_min=0., dist_max=1.): # target and reached are the (s,m) data so includ
-    return max(- dist_max, min(- dist_min, - np.linalg.norm(target - reached)))
+    return max(- dist_max, min(- dist_min, - np.linalg.norm(target - reached)))  # this norm essentially is euclidean distance
 
 
 def competence_exp(target, reached, dist_min=0., dist_max=1., power=1.):
