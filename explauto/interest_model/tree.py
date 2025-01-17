@@ -11,6 +11,7 @@ import copy
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+import random
 
 from heapq import heappop, heappush
 
@@ -26,6 +27,7 @@ from .competences import competence_exp, prediction_error_cos_dist_exp, competen
 from ..utils.observer import Observable
 from ..utils.plot_object import PlotObject
 
+from cozmo.nav_memory_map import NodeContentTypes
 
 class InterestTree(InterestModel, Observable):
     """
@@ -41,7 +43,9 @@ class InterestTree(InterestModel, Observable):
                  progress_win_size, 
                  progress_measure, 
                  sampling_mode,
-                 plot_objects=None):
+                 plot_objects=None,
+                 robot_world=None):
+
         self.conf = conf
         self.bounds = self.conf.bounds[:, expl_dims]
         self.competence_measure = competence_measure
@@ -66,7 +70,8 @@ class InterestTree(InterestModel, Observable):
                          progress_measure=progress_measure, 
                          sampling_mode=sampling_mode,
                          idxs=[],
-                         plot_objects=plot_objects)
+                         plot_objects=plot_objects,
+                         robot_world=robot_world)
         
         InterestModel.__init__(self, expl_dims)
         Observable.__init__(self)
@@ -208,7 +213,8 @@ class Tree(Observable):
                  sampling_mode, 
                  idxs=None, 
                  split_dim=0,
-                 plot_objects=None):
+                 plot_objects=None,
+                 robot_world=None):
 
         self.get_data_x = get_data_x
         self.bounds_x = np.array(bounds_x, dtype=np.float64)
@@ -242,6 +248,8 @@ class Tree(Observable):
         if self.n_children > self.max_points_per_region:
             self.split()
         self.update_max_progress()
+
+        self.robot_world = robot_world
         Observable.__init__(self)
 
 
@@ -297,15 +305,59 @@ class Tree(Observable):
             else:
                 return self.greater.pt2leaf(x)
         
-        
+
     def sample_bounds(self):
         """
-        Sample a point in the region of this node.
-        
+        Sample a point in the region of this node. If blocked points is not None then sample until
+        a point is found that is not blocked.
+
+        Note: Cannot build list of guaranteed unblocked to sample because floats, would be massive number of choices
+        Note: May need to rework if passing becomes too large. should I pass taken or free? if I pass free I can do guarantee sample..
+              or maybe I should just pass nav map and compute here
+
+        1. nvm don't pass list, pass the nav map and check the type of the point sampled
+            1.a.: what do we do if the entire node is object? We don't have a good way to back out of that situation
+                1.b could back out and sample random other node instead?
+
+        passing nav map (via robot world) by reference so it will be up to date when querying later
+
+
+        TODO: this is going to take forever unless I reduce search to the known bounds, even if the grid is currently for all possible actions
         """
+
+        # Nav memory map stores x,y information for things in the space.
+        # Cozmo pose is x,y _in front of cozmo_ (not center of cozmo) so they tell rotational information as well.
+        # "The coordinate space is relative to Cozmo, where Cozmo's origin is the point on the ground between Cozmo's two front wheels"
+        # Since the robot understands position by monitoring its tread movement,
+        # it does not understand movement in the z axis. This means that the only
+        # applicable elements of pose in this situation are position.x position.y
+        # and rotation.angle_z.
+        # x,y are in mm it looks like. So measure mm of exploration space for min/max
+        ### Catherine first attempt at this
+        # s = rand_bounds(self.bounds_x).flatten() # bounds_x here are the full motor space
+        # if self.robot_world.nav_memory_map is not None: # only check if nav memory map is set
+        #     while self.robot_world.nav_memory_map.get_content(s[0], s[1]) not in [NodeContentTypes.ClearOfObstacle, NodeContentTypes.ClearOfCliff]: # check x/y of s (not z)
+        #         s = rand_bounds(self.bounds_x).flatten() # sample new point until it's clear of obstacle
+        # return s
+
+        # Do this step to grab random rotation. Going to replace the x,y motor coordinates with what ones from nav memory map
         s = rand_bounds(self.bounds_x).flatten()
+        safe_coordinate_regions = []
+        self.robot_world.nav_memory_map.quad_tree_safe_coordinates(self.robot_world.nav_memory_map.root_node, safe_coordinate_regions)
+        # TODO split this into cleaner (commentable) code rather than one big list comprehension
+        random_safe_coordinates = [(np.tile(i[1, :] - i[0, :], (1, 1)) * np.random.rand(1, i.shape[1]) + np.tile(i[0, :], (1, 1))).flatten() for i in safe_coordinate_regions]
+        min_bounds = self.bounds_x[0, :]
+        max_bounds = self.bounds_x[1, :]
+        random_safe_coordinates_in_bounds = [coord for coord in random_safe_coordinates if min_bounds[0] <= coord[0] <= max_bounds[0] and min_bounds[1] <= coord[1] <= max_bounds[1]]
+        random_safe_coordinate_in_bounds = random.choice(random_safe_coordinates_in_bounds)
+        # Add on the random rotation (and any other dimensions of motor action) to the bounded motor action sampled from the Nav Memory Map
+        sample = np.append(random_safe_coordinate_in_bounds, (s[2:]))
+        return sample
+
+    def sample_bounds_exclude_objects(self):
+        s = rand_bounds(self.bounds_x).flatten()
+
         return s
-    
     
     def sample_random(self):
         """
@@ -525,7 +577,7 @@ class Tree(Observable):
         
         """
         if self.leafnode and self.n_children >= self.max_points_per_region and self.max_depth > 0:
-            self.split() 
+            self.split()
         self.idxs.append(idx)
         if self.leafnode:
             leaf_point_was_added_to = self
@@ -652,7 +704,8 @@ class Tree(Observable):
                          self.progress_measure, 
                          self.sampling_mode, 
                          idxs = lower_idx, 
-                         split_dim = split_dim)
+                         split_dim = split_dim,
+                         robot_world=self.robot_world)
         
         self.greater = Tree(self.get_data_x, 
                             g_bounds_x,
@@ -666,7 +719,8 @@ class Tree(Observable):
                             self.progress_measure, 
                             self.sampling_mode, 
                             idxs = greater_idx, 
-                            split_dim = split_dim)
+                            split_dim = split_dim,
+                            robot_world=self.robot_world)
 
     def calc_tree_variance_of_cos_sims(self, tree_sensory):
         sensory_combinations_idxs = list(combinations(range(len(tree_sensory)), 2))
@@ -1097,7 +1151,8 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                        'sampling_mode': {'mode':'epsilon_greedy',
                                                                          'param':0.1,
                                                                          'multiscale':False,
-                                                                         'volume':True}},
+                                                                         'volume':True},
+                                                     'nav_memory_map': {}},
                                            'cozmo_binary_obj_detection': {'max_points_per_region': 30, # twenty seems good so far
                                                      'max_depth': 50,
                                                      'split_mode': 'best_interest_diff',
