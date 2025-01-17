@@ -20,6 +20,7 @@ def gaussian_kernel(d, sigma_sq):
 def rand_bounds(bounds, n=1):
     widths = np.tile(bounds[1, :] - bounds[0, :], (n, 1))
     return widths * np.random.rand(n, bounds.shape[1]) + np.tile(bounds[0, :], (n, 1))
+    # max - mins (total range) * random (between 0 and 1) + mins
 
 
 def bounds_min_max(v, mins, maxs):
