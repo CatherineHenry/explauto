@@ -64,8 +64,7 @@ class ReticoAgent(Observable):
 
         return cls(conf, sm_model, im_model, n_bootstrap, context_mode)
 
-
-    def choose(self, context_ms=None):
+    def choose(self, context_ms=None, flow_uuid=None):
         """ Returns a point chosen by the interest model
         """
         try:
@@ -87,9 +86,10 @@ class ReticoAgent(Observable):
             x = rand_bounds(self.conf.bounds[:, self.expl_dims]).flatten()
             if self.context_mode is not None:
                 x = x[list(set(self.expl_dims) - set(self.context_mode['context_dims']))]
+        self.emit(f'[{flow_uuid}] choice', x)
         return x
 
-    def infer(self, expl_dims, inf_dims, x):
+    def infer(self, expl_dims, inf_dims, x, flow_uuid=None):
         """ Use the sensorimotor model to compute the expected value on inf_dims given that the value on expl_dims is x.
 
         .. note:: This corresponds to a prediction if expl_dims=self.conf.m_dims and inf_dims=self.conf.s_dims and to inverse prediction if expl_dims=self.conf.s_dims and inf_dims=self.conf.m_dims.
@@ -104,6 +104,8 @@ class ReticoAgent(Observable):
         except ExplautoBootstrapError:
             logger.warning('Sensorimotor model not bootstrapped yet')
             y = rand_bounds(self.conf.bounds[:, inf_dims]).flatten()
+
+        self.emit(f'[{flow_uuid}] inference', list(y))  # change to list so it doesn't wrap. temp solution
         return y
 
     def extract_ms(self, x, y):
@@ -138,33 +140,30 @@ class ReticoAgent(Observable):
         .. note:: This correspond to motor babbling if expl_dims=self.conf.m_dims and inf_dims=self.conf.s_dims and to  goal babbling if expl_dims=self.conf.s_dims and inf_dims=self.conf.m_dims.
         """
         if context_ms is None:
-            self.x = self.choose() # choose the next motor or sensory goal (depending on exploration space)
-            self.y = self.infer(self.expl_dims, self.inf_dims, self.x)
+            self.x = self.choose(flow_uuid=flow_uuid) # choose the next motor or sensory goal (depending on exploration space)
+            self.y = self.infer(self.expl_dims, self.inf_dims, self.x, flow_uuid)
         else:
             if self.context_mode["mode"] == 'mdmsds':
-                self.x = self.choose(context_ms) 
+                self.x = self.choose(context_ms, flow_uuid=flow_uuid)
                 if self.expl_dims == self.conf.s_dims and not self.context_mode['choose_m']:
                     m = context_ms[:self.conf.m_ndims//2]
                     in_dims = list(range(self.conf.m_ndims//2)) + list(range(self.conf.m_ndims, self.conf.m_ndims + self.conf.s_ndims))
                     out_dims = list(range(self.conf.m_ndims//2, self.conf.m_ndims))
                     dm = self.infer(in_dims, 
                                     out_dims, 
-                                    np.array(m + list(self.x)))
+                                    np.array(m + list(self.x)), flow_uuid)
                     self.y = np.hstack((m, dm))
                 else:
-                    self.y = self.infer(self.expl_dims, self.inf_dims, self.x)
+                    self.y = self.infer(self.expl_dims, self.inf_dims, self.x, flow_uuid)
             elif self.context_mode["mode"] == 'mcs':
-                self.x = self.choose(context_ms) 
-                self.y = self.infer(self.expl_dims, self.inf_dims, self.x)
+                self.x = self.choose(context_ms, flow_uuid=flow_uuid)
+                self.y = self.infer(self.expl_dims, self.inf_dims, self.x, flow_uuid)
                 
 
         # chosen motor goal, predicted sensory effect
         self.m, self.s = self.extract_ms(self.x, self.y)
 
         movement = self.motor_primitive(self.m)
-
-        self.emit(f'[{flow_uuid}] choice', self.x)
-        self.emit(f'[{flow_uuid}] inference', list(self.y)) # change to list so it doesn't wrap. temp solution
         self.emit(f'[{flow_uuid}] movement', movement)
 
         return movement
