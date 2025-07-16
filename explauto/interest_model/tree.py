@@ -958,7 +958,8 @@ class Tree(Observable):
             # eleph_path = './retico/misc/elephant_icon.png'
             if grid:
                 self.plot_grid(ax, progress_colors, progress_max, depth, plot_dims)
-                self.add_plot_objs(ax, "grid")
+                if len(plot_dims) == 2: # TODO Catherine: Could we support marking known object locations on the 3d grid?
+                    self.add_plot_objs(ax, "grid")
             if scatter and self.get_data_x() is not None:
                 self.plot_scatter(ax=ax, plot_dims=plot_dims)
         if ax2 is not None:
@@ -1054,13 +1055,19 @@ class Tree(Observable):
 
     def plot_scatter(self, ax, plot_dims=[0,1]):
 
-        ax.set_xlabel("Degree of Rotation")
-        ax.set_ylabel("mm Linear Travel (Post Rotation)")
-
-
         # plot points on figure
         if np.shape(self.get_data_x())[0] <= 5000:
-            ax.scatter(self.get_data_x()[:,plot_dims[0]], self.get_data_x()[:,plot_dims[1]], color = 'snow')
+            if len(plot_dims) == 2:
+                ax.set_xlabel("Degree of Rotation")
+                ax.set_ylabel("mm Linear Travel (Post Rotation)")
+                ax.scatter(self.get_data_x()[:,plot_dims[0]], self.get_data_x()[:,plot_dims[1]], color = 'snow')
+            elif len(plot_dims) == 3:
+                ax.set_xlabel("mm Travel along x Axis")
+                ax.set_ylabel("mm Travel along y Axis")
+                ax.set_zlabel("Degree of Rotation")
+                ax.scatter(self.get_data_x()[:,0], self.get_data_x()[:,1], self.get_data_x()[:,2], color = 'black')
+
+
 
         ax.set_title(f'Action/Perception Turn Count: {len(self.get_data_x())}', loc='left', pad=30)
 
@@ -1089,22 +1096,205 @@ class Tree(Observable):
         ax.set_title(f'Action/Perception Turn Count: {len(self.get_data_x())}', loc='left')
 
     def plot_grid(self, ax, progress_colors=True, progress_max=1., depth=10, plot_dims=[0,1], category_labels=None):
+        debug = False
         if category_labels is None:
             category_labels = []
+        if debug:
+            print(f"depth {depth}")
+
+        axis = depth % 3 # Cycle through x, y, z axes
+        # print(f"axis {axis}")
+        prog_min = 0.
         if self.leafnode or depth == 0:
-        
+            if debug:
+                print("leafnode")
             mins = self.bounds_x[0,plot_dims]
             maxs = self.bounds_x[1,plot_dims]
-            
-            if progress_colors:
-                prog_min = 0.
-                c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
-                ax.add_patch(plt.Rectangle(mins, maxs[0] - mins[0], maxs[1] - mins[1], facecolor=c,  edgecolor='white', alpha=0.7))
-                ax.annotate(len(category_labels), mins, color='#8dd17d', weight='bold', fontsize=15, ha='left', va='baseline')
-            else:
-                ax.add_patch(plt.Rectangle(mins, maxs[0] - mins[0], maxs[1] - mins[1], fill=False))
-                    
+            if debug:
+                print(f"mins: {mins}")
+                print(f"maxs: {maxs}")
+                print(f"region line coordinates: {(mins[0], mins[1], mins[2]), (maxs[0], maxs[1], maxs[2])}")
+            # Plot a rectangle in 2D space
+            if len(plot_dims) == 2:
+                if progress_colors:
+                    prog_min = 0.
+                    c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
+                    ax.add_patch(plt.Rectangle(mins, maxs[0] - mins[0], maxs[1] - mins[1], facecolor=c,  edgecolor='white', alpha=0.7))
+                    ax.annotate(len(category_labels), mins, color='#8dd17d', weight='bold', fontsize=15, ha='left', va='baseline')
+                else:
+                    ax.add_patch(plt.Rectangle(mins, maxs[0] - mins[0], maxs[1] - mins[1], fill=False))
+            if len(plot_dims) == 3:
+                # Plot the diagonal line of the min/max coordinates. We use this line + normal vector to determine the plane and then build the rectangle
+                # print(f"\tline coordinates: {(split_value, mins[1], mins[2]), (split_value, maxs[1], maxs[2])}")
+                # ax.plot([mins[0], maxs[0]], [mins[1], maxs[1]], [mins[2], maxs[2]], c='green')
+                if axis == 0:
+                    # print("AXIS 0")
+                    # normal vector for splitting along X axis (used for calculating the plane that divides X axis)
+                    if debug:
+                        print("AXIS 0")
+                    normal_vector = [1, 0, 0]
+                    a, b, c = normal_vector
+
+                    split_value = mins[1]
+                    yy, zz = np.meshgrid([mins[1], maxs[1]], [mins[2], maxs[2]])
+                    # have an ascending and descending set of y coordinates so they go in rectangle order (otherwise will produce an hourglass)
+                    yy_asc = np.sort(yy)
+                    yy_desc = -np.sort(-yy)
+
+                    if debug:
+                        print(f"\tyy:\n\t{yy}")
+                        print(f"\tzz:\n\t{zz}")
+
+
+                    p1  = np.array([mins[0], mins[1], mins[2]])
+
+                    ## CALCULATE RECTANGLE 1
+                    # Calculate z values using the plane equation: ax + by + cz + d = 0
+                    # where (a, b, c) is the normal vector and d = -(ax0 + by0 + cz0) for a point (x0, y0, z0) on the plane
+                    d = -np.dot(normal_vector, p1)
+                    x1 = (-d  - b * yy - c * zz) / a
+                    if debug:
+                        # print(f"\ty1:\n\t{y1}")
+                        print(f"\tRECTANGLE 1: \n{x1}\n{yy}\n{zz}")
+                    r1_stacked = np.stack((x1, yy, zz),  axis=2)
+                    if debug:
+                        print(f"\t\tp1: {p1}, d1: {d}, x1: {x1}")
+
+                    r1_coordinates = np.reshape(r1_stacked, (-1, 3))
+
+                    if debug:
+                        print(f"\t\tr1 stacked: \n{r1_stacked}")
+                        print(f"\t\tr1 coordinates: \n{r1_coordinates}")
+                    sorted_r1_coordinates = np.array(sorted(r1_coordinates.tolist()))
+                    if debug:
+                        print(f"\t\tsorted r1 coordinates: {sorted_r1_coordinates}")
+
+                    ## CALCULATE RECTANGLE 2
+                    p2  = np.array([maxs[0], maxs[1], maxs[2]])
+                    d2 = -np.dot(normal_vector, p2)
+                    x2 = (-d2  - b * yy - c * zz) / a
+                    if debug:
+                        print(f"\tRECTANGLE 2: \nx:{x2}\ny2:{yy}\nz:{zz}")
+                        print(f"\t\tp2: {p2}, d2: {d2}, y2: {x2}")
+                    r2_stacked = np.stack((x2, yy, zz),  axis=2)
+                    r2_coordinates = np.reshape(r2_stacked, (-1, 3))
+
+                    if debug:
+                        print(f"\t\tr2 coordinates: \n{r2_coordinates}")
+
+                    c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
+                    ax.plot_surface(np.concatenate((x1, x2, x1, x2), axis=1), np.concatenate((yy_asc, yy_desc, yy_asc, yy_desc), axis=1), np.concatenate((zz, zz, zz, zz), axis=1), linewidth=2, alpha=.05, edgecolors=c, shade=False, color=c)
+
+                if axis == 1:
+                    # print("AXIS 1")
+                    # normal vector for splitting along Y axis (used for calculating the plane that divides Y axis)
+                    normal_vector = [0, 1, 0]
+                    a, b, c = normal_vector
+
+                    split_value = mins[1]
+                    xx, zz = np.meshgrid([mins[0], maxs[0]], [mins[2], maxs[2]])
+                    # have an ascending and descending set of x coordinates so they go in rectangle order (otherwise will produce an hourglass)
+                    xx_asc = np.sort(xx)
+                    xx_desc = -np.sort(-xx)
+                    if debug:
+                        print(f"\txx:\n\t{xx}")
+                        print(f"\tzz:\n\t{zz}")
+
+                    p1  = np.array([mins[0], split_value, mins[2]])
+
+                    ## CALCULATE RECTANGLE 1
+                    # Calculate z values using the plane equation: ax + by + cz + d = 0
+                    # where (a, b, c) is the normal vector and d = -(ax0 + by0 + cz0) for a point (x0, y0, z0) on the plane
+                    d = -np.dot(normal_vector, p1)
+                    y1 = (-d - a * xx - c * zz)/b
+                    if debug:
+                        print(f"\tp1: {p1}, d1: {d}, y1: {y1}")
+                        # print(f"\ty1:\n\t{y1}")
+                        print(f"\tRECTANGLE 1: \n{xx}\n{y1}\n{zz}")
+                    r1_stacked = np.stack((xx, y1, zz),  axis=2)
+
+                    r1_coordinates = np.reshape(r1_stacked, (-1, 3))
+                    if debug:
+                        print(f"\t\tr1 stacked: \n{r1_stacked}")
+                        print(f"\t\tr1 coordinates: \n{r1_coordinates}")
+                    sorted_r1_coordinates = np.array(sorted(r1_coordinates.tolist()))
+                    if debug:
+                        print(f"\t\tsorted r1 coordinates: {sorted_r1_coordinates}")
+
+                    ## CALCULATE RECTANGLE 2
+                    p2  = np.array([maxs[0], maxs[1], maxs[2]])
+                    d2 = -np.dot(normal_vector, p2)
+                    y2 = (-d2 - a * xx - c * zz)/b
+                    if debug:
+                        # print(f"\ty2:\n\t{y2}")
+                        print(f"\tRECTANGLE 2: \nx:{xx}\ny2:{y2}\nz:{zz}")
+                        print(f"\t\tp2: {p2}, d2: {d2}, y2: {y2}")
+                        # print(np.concatenate((xx, y1, zz),axis=1).T)
+                    r2_stacked = np.stack((xx, y2, zz),  axis=2)
+                    r2_coordinates = np.reshape(r2_stacked, (-1, 3))
+                    if debug:
+                        # print(f"r2 stacked: \n{r2_stacked}")
+                        print(f"\t\tr2 coordinates: \n{r2_coordinates}")
+
+
+                    c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
+                    ax.plot_surface(np.concatenate((xx_asc, xx_desc, xx_asc, xx_desc), axis=1), np.concatenate((y1, y2, y1, y2), axis=1), np.concatenate((zz, zz, zz, zz), axis=1), linewidth=2, alpha=.05, edgecolors=c, shade=False, color=c)
+
+
+                if axis == 2:
+                    # print("AXIS 2")
+                    # normal vector for splitting along Z axis (used for calculating the plane that divides Z axis)
+                    normal_vector = [0, 0, 1]
+                    a, b, c = normal_vector
+
+                    split_value = mins[1]
+                    xx, yy = np.meshgrid([mins[0], maxs[0]], [mins[1], maxs[1]])
+                    xx_asc = np.sort(xx)
+                    xx_desc = -np.sort(-xx)
+                    if debug:
+                        print(f"\txx:\n\t{xx}")
+
+                        print(f"\tyy:\n\t{yy}")
+
+                    p1  = np.array([mins[0], mins[1], mins[2]])
+
+                    ## CALCULATE RECTANGLE 1
+                    # Calculate z values using the plane equation: ax + by + cz + d = 0
+                    # where (a, b, c) is the normal vector and d = -(ax0 + by0 + cz0) for a point (x0, y0, z0) on the plane
+                    d = -np.dot(normal_vector, p1)
+                    z1 = (-d - a * xx - b * yy) / c
+
+                    if debug:
+                        # print(f"\ty1:\n\t{y1}")
+                        print(f"RECTANGLE 1: \n{xx}\n{yy}\n{z1}")
+                    r1_stacked = np.stack((xx, yy, z1),  axis=2)
+
+                    r1_coordinates = np.reshape(r1_stacked, (-1, 3))
+                    if debug:
+                        print(f"r1 stacked: \n{r1_stacked}")
+                        print(f"r1 coordinates: \n{r1_coordinates}")
+                    sorted_r1_coordinates = np.array(sorted(r1_coordinates.tolist()))
+                    if debug:
+                        print(f"sorted r1 coordinates: {sorted_r1_coordinates}")
+
+                    ## CALCULATE RECTANGLE 2
+                    p2  = np.array([maxs[0], maxs[1], maxs[2]])
+                    d2 = -np.dot(normal_vector, p2)
+                    z2 = (-d2 - a * xx - b * yy) / c
+                    if debug:
+                        print(f"RECTANGLE 2: \nx:{xx}\ny2:{yy}\nz:{z2}")
+
+                    r2_stacked = np.stack((xx, yy, z2),  axis=2)
+                    r2_coordinates = np.reshape(r2_stacked, (-1, 3))
+                    if debug:
+                        print(f"r2 coordinates: \n{r2_coordinates}")
+
+                    c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
+
+                    ax.plot_surface(np.concatenate((xx_asc, xx_desc, xx_asc, xx_desc), axis=1), np.concatenate((yy, yy, yy, yy), axis=1), np.concatenate((z1, z2, z1, z2), axis=1), linewidth=2, alpha=.05, edgecolors=c, shade=False, color=c)
         else:
+            if debug:
+                print("not leaf")
             category_labels.append(len(category_labels))
             self.lower.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims, category_labels)
             category_labels.append(len(category_labels))
