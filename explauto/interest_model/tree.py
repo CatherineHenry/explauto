@@ -44,7 +44,7 @@ class InterestTree(InterestModel, Observable):
                  progress_measure, 
                  sampling_mode,
                  plot_objects=None,
-                 robot_world=None):
+                 robot_nav_memory_map=None):
 
         self.conf = conf
         self.bounds = self.conf.bounds[:, expl_dims]
@@ -71,7 +71,7 @@ class InterestTree(InterestModel, Observable):
                          sampling_mode=sampling_mode,
                          idxs=[],
                          plot_objects=plot_objects,
-                         robot_world=robot_world)
+                         robot_nav_memory_map=robot_nav_memory_map)
         
         InterestModel.__init__(self, expl_dims)
         Observable.__init__(self)
@@ -214,7 +214,7 @@ class Tree(Observable):
                  idxs=None, 
                  split_dim=0,
                  plot_objects=None,
-                 robot_world=None):
+                 robot_nav_memory_map=None):
 
         self.get_data_x = get_data_x
         self.bounds_x = np.array(bounds_x, dtype=np.float64)
@@ -249,7 +249,7 @@ class Tree(Observable):
             self.split()
         self.update_max_progress()
 
-        self.robot_world = robot_world
+        self.robot_nav_memory_map = robot_nav_memory_map
         Observable.__init__(self)
 
 
@@ -343,7 +343,8 @@ class Tree(Observable):
         # Do this step to grab random rotation. Going to replace the x,y motor coordinates with what ones from nav memory map
         s = rand_bounds(self.bounds_x).flatten()
         safe_coordinate_regions = []
-        self.robot_world.nav_memory_map.quad_tree_safe_coordinates(self.robot_world.nav_memory_map.root_node, safe_coordinate_regions)
+        # self.robot_world.nav_memory_map.quad_tree_safe_coordinates(self.robot_world.nav_memory_map.root_node, safe_coordinate_regions)
+        self.robot_nav_memory_map.quad_tree_safe_coordinates(self.robot_nav_memory_map.root_node, safe_coordinate_regions)
         # TODO split this into cleaner (commentable) code rather than one big list comprehension
         random_safe_coordinates = [(np.tile(i[1, :] - i[0, :], (1, 1)) * np.random.rand(1, i.shape[1]) + np.tile(i[0, :], (1, 1))).flatten() for i in safe_coordinate_regions]
         min_bounds = self.bounds_x[0, :]
@@ -705,7 +706,7 @@ class Tree(Observable):
                          self.sampling_mode, 
                          idxs = lower_idx, 
                          split_dim = split_dim,
-                         robot_world=self.robot_world)
+                          robot_nav_memory_map=self.robot_nav_memory_map)
         
         self.greater = Tree(self.get_data_x, 
                             g_bounds_x,
@@ -720,7 +721,7 @@ class Tree(Observable):
                             self.sampling_mode, 
                             idxs = greater_idx, 
                             split_dim = split_dim,
-                            robot_world=self.robot_world)
+                            robot_nav_memory_map=self.robot_nav_memory_map)
 
     def calc_tree_variance_of_cos_sims(self, tree_sensory):
         sensory_combinations_idxs = list(combinations(range(len(tree_sensory)), 2))
