@@ -424,7 +424,6 @@ class Tree(Observable):
         # TODO split this into cleaner (commentable) code rather than one big list comprehension
         # Selects a random coordinate from every safe region in the nav memory map tree
         random_safe_coordinates = [(np.tile(i[1, :] - i[0, :], (1, 1)) * np.random.rand(1, i.shape[1]) + np.tile(i[0, :], (1, 1))).flatten() for i in safe_coordinate_regions]
-        # random_safe_coordinates = [(np.tile(i[1, :] - i[0, :], (1, 1)) * self.rng.random((1, i.shape[1])) + np.tile(i[0, :], (1, 1))).flatten() for i in safe_coordinate_regions]
         min_bounds = self.bounds_x[0, :]
         max_bounds = self.bounds_x[1, :]
         # filter to safe coordinates after selecting random points for every region to solve for edge case where a nav map safe region may be
@@ -460,7 +459,6 @@ class Tree(Observable):
                                    (self.bounds_x[1,self.split_dim] - self.bounds_x[0,self.split_dim]))
 
                     if split_ratio > np.random.random(): # TODO: does this really result 'weighted by volume' in practice?
-                    # if split_ratio > self.rng.random(): # TODO: does this really result 'weighted by volume' in practice?
                         return self.lower.sample(sampling_mode={'mode':'random'})
                     else:
                         return self.greater.sample(sampling_mode={'mode':'random'})
@@ -1471,7 +1469,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                          'param':0.1,
                                                                          'multiscale':False,
                                                                          'volume':True},
-                                                     'nav_memory_map': {}},
+                                                     },
                                            'cozmo_binary_obj_detection': {'max_points_per_region': 30, # twenty seems good so far
                                                      'max_depth': 50,
                                                      'split_mode': 'best_interest_diff',
