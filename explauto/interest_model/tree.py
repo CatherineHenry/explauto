@@ -379,6 +379,39 @@ class Tree(Observable):
             else:
                 return self.greater.pt2leaf(x)
         
+    def get_safe_coordinates_within_region_bounds(self):
+        # Get the coordinates of all the leaf nodes that are safe (object/cliff/edge free) from the  Nav Mem Map
+        safe_coordinate_regions = []
+        self.robot_nav_memory_map.quad_tree_safe_coordinates(self.robot_nav_memory_map.root_node, safe_coordinate_regions)
+
+        # Select all the safe leaf node coordinates from Nav Mem Map that are in the bounds of the region being sampled
+        # Any intersecting coorinates are trimmed to fit within the region being sampled.
+        min_bounds = self.bounds_x[0, :]
+        max_bounds = self.bounds_x[1, :]
+        safe_coordinate_regions_in_bounds = []
+        for coordinate in safe_coordinate_regions:
+            region_min = coordinate[0] # x,y coords of region min
+            region_max = coordinate[1] # x,y coords of region max
+            if (region_min[0] >= min_bounds[0] and region_max[0] <= max_bounds[0] and region_min[1] >= min_bounds[1] and region_max[1] <= max_bounds[1]):
+                # Safe navmap region is entirely inside interest tree region to be sampled
+                # No trimming needed
+                safe_coordinate_regions_in_bounds.append(coordinate)
+            else:
+                # there is either no overlap or there is partial overlap. If partial, trim to fit
+                x_intersection_min = max(region_min[0], min_bounds[0])
+                y_intersection_min = max(region_min[1], min_bounds[1])
+                x_intersection_max = min(region_max[0], max_bounds[0])
+                y_intersection_max = min(region_max[1], max_bounds[1])
+
+                # check if the intersection results in invalid regions
+                if (x_intersection_min >= x_intersection_max or y_intersection_min >= y_intersection_max):
+                    continue
+                else:
+
+                    intersection_coordinate = np.array([[x_intersection_min, y_intersection_min],[x_intersection_max, y_intersection_max]])
+                    print(f"trimmed coordinate: {coordinate} to {intersection_coordinate}")
+                    safe_coordinate_regions_in_bounds.append(intersection_coordinate)
+        return safe_coordinate_regions_in_bounds
 
     def sample_bounds(self):
         """
@@ -416,28 +449,26 @@ class Tree(Observable):
         #         s = rand_bounds(self.bounds_x).flatten() # sample new point until it's clear of obstacle
         # return s
 
-        # Do this step to grab random rotation. Going to replace the x,y motor coordinates with what ones from nav memory map
-        s = rand_bounds(self.bounds_x).flatten()
-        safe_coordinate_regions = []
-        # self.robot_world.nav_memory_map.quad_tree_safe_coordinates(self.robot_world.nav_memory_map.root_node, safe_coordinate_regions)
-        self.robot_nav_memory_map.quad_tree_safe_coordinates(self.robot_nav_memory_map.root_node, safe_coordinate_regions)
-        # TODO split this into cleaner (commentable) code rather than one big list comprehension
-        # Selects a random coordinate from every safe region in the nav memory map tree
-        random_safe_coordinates = [(np.tile(i[1, :] - i[0, :], (1, 1)) * np.random.rand(1, i.shape[1]) + np.tile(i[0, :], (1, 1))).flatten() for i in safe_coordinate_regions]
-        min_bounds = self.bounds_x[0, :]
-        max_bounds = self.bounds_x[1, :]
-        # filter to safe coordinates after selecting random points for every region to solve for edge case where a nav map safe region may be
-        # partially in an Interest Tree region. Meaning, it should be partially sampled.
-        random_safe_coordinates_in_bounds = [coord for coord in random_safe_coordinates if min_bounds[0] <= coord[0] <= max_bounds[0] and min_bounds[1] <= coord[1] <= max_bounds[1]]
-        if len(random_safe_coordinates_in_bounds) == 0:
+        safe_coordinate_regions_in_bounds = get_safe_coordinates_within_region_bounds()
+
+        # if there are no safe coordinate regions in bounds, then we cannot sample this region
+        if len(safe_coordinate_regions_in_bounds) == 0:
             self.can_sample = False
             print(f"No safe coordinates in bounds (dimension {self.split_dim} min: {min_bounds} max: {max_bounds})!")
             return None
 
-        random_safe_coordinates_in_bounds = random.choice(random_safe_coordinates_in_bounds)
-        # Add on the random rotation (and any other dimensions of motor action) to the bounded motor action sampled from the Nav Memory Map
-        sample = np.append(random_safe_coordinates_in_bounds, (s[2:]))
-        return sample
+        # pick a random safe Nav Mem Map leaf to sample a single coordinate from
+        random_safe_leaf = random.choice(safe_coordinate_regions_in_bounds)
+        random_safe_leaf_min_max_diff = random_safe_leaf[1, :] - random_safe_leaf[0, :]
+        random_in_diff = random_safe_leaf_min_max_diff * np.random.rand(1, random_safe_leaf.shape[1])
+        # add the min safe coordinate back to the random difference to get a final random safe coordinate within the bounds
+        random_safe_coordinate =  random_in_diff + random_safe_leaf[0, :]
+
+        # Sample a random point in region bounds to get a rotation (and any other dimensions of motor action that weren't restricted
+        # by safe spaces in the NavMemMap) to add to the bounded motor action sampled from the Nav Memory Map
+        rand_sample_in_region_bounds = rand_bounds(self.bounds_x).flatten()
+        random_safe_coordinate_with_rotation = np.append(random_safe_coordinate, (rand_sample_in_region_bounds[2:]))
+        return random_safe_coordinate_with_rotation
 
     def sample_bounds_exclude_objects(self):
         s = rand_bounds(self.bounds_x).flatten()
