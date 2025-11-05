@@ -474,8 +474,8 @@ class Tree(Observable):
 
         else: 
             # Choose a leaf randomly
-            return np.random.choice(self.get_leaves()).sample_bounds()
-        
+            return np.random.choice(self.get_leaves(only_sampleable=True)).sample_bounds()
+
         
     def sample_greedy(self):
         """        
