@@ -302,12 +302,12 @@ class Tree(Observable):
         self.can_sample = True # If there are no free spaces to travel to in the region this is set to false and the leaf is passed over when sampling
         self.progress = 0 # potential learning progress (will select points where this is high)
         self.max_leaf_progress = 0
-        
+        self.robot_nav_memory_map = robot_nav_memory_map
+
         if self.n_children > self.max_points_per_region:
             self.split()
         self.update_max_progress()
 
-        self.robot_nav_memory_map = robot_nav_memory_map
         Observable.__init__(self)
 
 
