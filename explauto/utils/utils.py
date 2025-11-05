@@ -18,7 +18,10 @@ def gaussian_kernel(d, sigma_sq):
 
 
 def rand_bounds(bounds, n=1):
+    # returns the absolute value sum of the bounds (if x is -250, 250 then width is 500)
     widths = np.tile(bounds[1, :] - bounds[0, :], (n, 1))
+    # generate n lists of random values of length len(bounds)
+    # first creates a random for each bounds value, then multiplies by the widths and then adds the minmum bounds
     return widths * np.random.rand(n, bounds.shape[1]) + np.tile(bounds[0, :], (n, 1))
     # max - mins (total range) * random (between 0 and 1) + mins
 
