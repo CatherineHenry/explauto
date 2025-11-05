@@ -13,7 +13,6 @@ import numpy as np
 import random
 
 import matplotlib.pyplot as plt
-import random
 
 from heapq import heappop, heappush
 
@@ -72,9 +71,9 @@ class InterestTree(InterestModel, Observable):
                          self.get_data_c,
                          max_points_per_region=max_points_per_region,
                          max_depth=max_depth,
-                         split_mode=split_mode, 
-                         progress_win_size=progress_win_size, 
-                         progress_measure=progress_measure, 
+                         split_mode=split_mode,
+                         progress_win_size=progress_win_size,
+                         progress_measure=progress_measure,
                          sampling_mode=sampling_mode,
                          idxs=[],
                          plot_objects=plot_objects,
@@ -255,19 +254,19 @@ class Tree(Observable):
     
 
     """
-    def __init__(self, 
-                 get_data_x, 
+    def __init__(self,
+                 get_data_x,
                  bounds_x,
                  get_data_y,
                  get_data_flow_uuid,
-                 get_data_c, 
-                 max_points_per_region, 
+                 get_data_c,
+                 max_points_per_region,
                  max_depth,
-                 split_mode, 
-                 progress_win_size, 
-                 progress_measure, 
-                 sampling_mode, 
-                 idxs=None, 
+                 split_mode,
+                 progress_win_size,
+                 progress_measure,
+                 sampling_mode,
+                 idxs=None,
                  split_dim=0,
                  plot_objects=None,
                  robot_nav_memory_map=None,
@@ -288,7 +287,6 @@ class Tree(Observable):
         self.sampling_mode = sampling_mode
 
         self.plot_objects = [] if plot_objects is None else plot_objects
-
         self.split_dim = split_dim
         self.split_value = None
         self.lower = None
@@ -804,18 +802,18 @@ class Tree(Observable):
                           robot_nav_memory_map=self.robot_nav_memory_map,
                           region_deletion_rng=self.region_deletion_rng)
         
-        self.greater = Tree(self.get_data_x, 
+        self.greater = Tree(self.get_data_x,
                             g_bounds_x,
                             self.get_data_y,
                             self.get_data_flow_uuid,
-                            self.get_data_c, 
-                            self.max_points_per_region, 
+                            self.get_data_c,
+                            self.max_points_per_region,
                             self.max_depth - 1,
-                            self.split_mode, 
-                            self.progress_win_size, 
-                            self.progress_measure, 
-                            self.sampling_mode, 
-                            idxs = greater_idx, 
+                            self.split_mode,
+                            self.progress_win_size,
+                            self.progress_measure,
+                            self.sampling_mode,
+                            idxs = greater_idx,
                             split_dim = split_dim,
                             robot_nav_memory_map=self.robot_nav_memory_map,
                             region_deletion_rng=self.region_deletion_rng)
