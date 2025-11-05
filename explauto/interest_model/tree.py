@@ -21,6 +21,7 @@ from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.patches import Polygon, Wedge
 from scipy.spatial.kdtree import minkowski_distance_p
 
+from ..utils.annotations3d import annotate3D
 from ..utils.plot_object import PlotObject
 from ..utils.utils import rand_bounds
 from ..utils.config import make_configuration
@@ -1048,7 +1049,7 @@ class Tree(Observable):
         # return competence_exp(target, reached, 0, 10)
         return prediction_error_cos_dist_exp(target, reached)
 
-    def plot(self, ax=None, ax2=None, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=30, plot_dims=[0,1]):
+    def plot(self, ax=None, ax2=None, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=30, plot_dims=[0,1], legend_artists=None):
         """
         Plot a projection on 2D of the Tree.
         
@@ -1075,7 +1076,7 @@ class Tree(Observable):
             # cat_path = './retico/misc/cat_icon.png'
             # eleph_path = './retico/misc/elephant_icon.png'
             if grid:
-                self.plot_grid(ax, progress_colors, progress_max, depth, plot_dims)
+                self.plot_grid(ax, progress_colors, progress_max, depth, plot_dims, legend_artists=legend_artists)
                 if len(plot_dims) == 2: # TODO Catherine: Could we support marking known object locations on the 3d grid?
                     self.add_plot_objs(ax, "grid")
             if scatter and self.get_data_x() is not None:
@@ -1213,7 +1214,7 @@ class Tree(Observable):
         ax.set_rlabel_position(-30)
         ax.set_title(f'Action/Perception Turn Count: {len(self.get_data_x())}', loc='left')
 
-    def plot_grid(self, ax, progress_colors=True, progress_max=1., depth=10, plot_dims=[0,1], category_labels=None):
+    def plot_grid(self, ax, progress_colors=True, progress_max=1., depth=10, plot_dims=[0,1], category_labels=None, legend_artists=None):
         debug = False
         if category_labels is None:
             category_labels = []
@@ -1301,7 +1302,10 @@ class Tree(Observable):
                         print(f"\t\tr2 coordinates: \n{r2_coordinates}")
 
                     c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
-                    ax.plot_surface(np.concatenate((x1, x2, x1, x2), axis=1), np.concatenate((yy_asc, yy_desc, yy_asc, yy_desc), axis=1), np.concatenate((zz, zz, zz, zz), axis=1), linewidth=2, alpha=.05, edgecolors=c, shade=False, color=c)
+                    split = ax.plot_surface(np.concatenate((x1, x2, x1, x2), axis=1), np.concatenate((yy_asc, yy_desc, yy_asc, yy_desc), axis=1), np.concatenate((zz, zz, zz, zz), axis=1), linewidth=2, alpha=.05, edgecolors=c, shade=False, color=c)
+                    annotation = annotate3D(ax, s=str(len(category_labels)), xyz=mins, fontsize=10, xytext=(-3,3),
+                               textcoords='offset points', ha='right',va='bottom')
+
 
                 if axis == 1:
                     # print("AXIS 1")
@@ -1356,7 +1360,9 @@ class Tree(Observable):
 
 
                     c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
-                    ax.plot_surface(np.concatenate((xx_asc, xx_desc, xx_asc, xx_desc), axis=1), np.concatenate((y1, y2, y1, y2), axis=1), np.concatenate((zz, zz, zz, zz), axis=1), linewidth=2, alpha=.05, edgecolors=c, shade=False, color=c)
+                    split = ax.plot_surface(np.concatenate((xx_asc, xx_desc, xx_asc, xx_desc), axis=1), np.concatenate((y1, y2, y1, y2), axis=1), np.concatenate((zz, zz, zz, zz), axis=1), linewidth=2, alpha=.05, edgecolors=c, shade=False, color=c)
+                    annotation = annotate3D(ax, s=str(len(category_labels)), xyz=mins, fontsize=10, xytext=(-3,3),
+                           textcoords='offset points', ha='right',va='bottom')
 
 
                 if axis == 2:
@@ -1409,15 +1415,20 @@ class Tree(Observable):
 
                     c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
 
-                    ax.plot_surface(np.concatenate((xx_asc, xx_desc, xx_asc, xx_desc), axis=1), np.concatenate((yy, yy, yy, yy), axis=1), np.concatenate((z1, z2, z1, z2), axis=1), linewidth=2, alpha=.05, edgecolors=c, shade=False, color=c)
+                    split = ax.plot_surface(np.concatenate((xx_asc, xx_desc, xx_asc, xx_desc), axis=1), np.concatenate((yy, yy, yy, yy), axis=1), np.concatenate((z1, z2, z1, z2), axis=1), linewidth=2, alpha=.05, edgecolors=c, shade=False, color=c)
+                    annotation = annotate3D(ax, s=str(len(category_labels)), xyz=mins, fontsize=10, xytext=(-3,3),
+                               textcoords='offset points', ha='right',va='bottom')
+
+                if legend_artists is not None:
+                    legend_artists[str(len(category_labels))] = [split, annotation]
+
         else:
             if debug:
                 print("not leaf")
             category_labels.append(len(category_labels))
-            self.lower.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims, category_labels)
+            self.lower.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims, category_labels, legend_artists)
             category_labels.append(len(category_labels))
-            self.greater.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims, category_labels)
-
+            self.greater.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims, category_labels, legend_artists)
 
 # foal_plot_obj = PlotObject(image_path='./retico/misc/foal_icon.png', nose_x=-1, nose_y=4.5, tail_x=1.5, tail_y=4.5)
 # goat_plot_obj = PlotObject(image_path='./retico/misc/goat_icon.png', nose_x=2.3, nose_y=-3, tail_x=0.5, tail_y=-4)
