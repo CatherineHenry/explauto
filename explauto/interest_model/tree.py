@@ -322,6 +322,12 @@ class Tree(Observable):
             return [self] + fl + fg
 
     def get_leaves(self):
+        def leaf_as_list(leaf):
+            return [leaf]
+
+        return self.fold_up(f_inter=add_lower_and_greater_with_parent, f_leaf=leaf_as_list)
+
+
         """
         Get the list of all leaves.
         """
