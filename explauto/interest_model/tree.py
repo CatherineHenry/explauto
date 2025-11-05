@@ -435,8 +435,7 @@ class Tree(Observable):
             print(f"No safe coordinates in bounds (dimension {self.split_dim} min: {min_bounds} max: {max_bounds})!")
             return None
 
-        random_safe_cooxrdinate_in_bounds = random.choice(random_safe_coordinates_in_bounds)
-        # random_safe_coordinate_in_bounds = self.rng.choice(random_safe_coordinates_in_bounds)
+        random_safe_coordinates_in_bounds = random.choice(random_safe_coordinates_in_bounds)
         # Add on the random rotation (and any other dimensions of motor action) to the bounded motor action sampled from the Nav Memory Map
         sample = np.append(random_safe_coordinates_in_bounds, (s[2:]))
         return sample
