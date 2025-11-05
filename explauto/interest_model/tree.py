@@ -242,6 +242,7 @@ class Tree(Observable):
         self.volume = np.prod(self.bounds_x[1,:] - self.bounds_x[0,:])
         
         self.leafnode = True # identifies if self is a Leaf Node
+        self.can_sample = True # If there are no free spaces to travel to in the region this is set to false and the leaf is passed over when sampling
         self.progress = 0 # potential learning progress (will select points where this is high)
         self.max_leaf_progress = 0
         
@@ -324,6 +325,8 @@ class Tree(Observable):
 
         TODO: this is going to take forever unless I reduce search to the known bounds, even if the grid is currently for all possible actions
         """
+        if not self.can_sample:
+            return None
 
         # Nav memory map stores x,y information for things in the space.
         # Cozmo pose is x,y _in front of cozmo_ (not center of cozmo) so they tell rotational information as well.
@@ -346,13 +349,23 @@ class Tree(Observable):
         # self.robot_world.nav_memory_map.quad_tree_safe_coordinates(self.robot_world.nav_memory_map.root_node, safe_coordinate_regions)
         self.robot_nav_memory_map.quad_tree_safe_coordinates(self.robot_nav_memory_map.root_node, safe_coordinate_regions)
         # TODO split this into cleaner (commentable) code rather than one big list comprehension
+        # Selects a random coordinate from every safe region in the nav memory map tree
         random_safe_coordinates = [(np.tile(i[1, :] - i[0, :], (1, 1)) * np.random.rand(1, i.shape[1]) + np.tile(i[0, :], (1, 1))).flatten() for i in safe_coordinate_regions]
+        # random_safe_coordinates = [(np.tile(i[1, :] - i[0, :], (1, 1)) * self.rng.random((1, i.shape[1])) + np.tile(i[0, :], (1, 1))).flatten() for i in safe_coordinate_regions]
         min_bounds = self.bounds_x[0, :]
         max_bounds = self.bounds_x[1, :]
+        # filter to safe coordinates after selecting random points for every region to solve for edge case where a nav map safe region may be
+        # partially in an Interest Tree region. Meaning, it should be partially sampled.
         random_safe_coordinates_in_bounds = [coord for coord in random_safe_coordinates if min_bounds[0] <= coord[0] <= max_bounds[0] and min_bounds[1] <= coord[1] <= max_bounds[1]]
-        random_safe_coordinate_in_bounds = random.choice(random_safe_coordinates_in_bounds)
+        if len(random_safe_coordinates_in_bounds) == 0:
+            self.can_sample = False
+            print(f"No safe coordinates in bounds (dimension {self.split_dim} min: {min_bounds} max: {max_bounds})!")
+            return None
+
+        random_safe_cooxrdinate_in_bounds = random.choice(random_safe_coordinates_in_bounds)
+        # random_safe_coordinate_in_bounds = self.rng.choice(random_safe_coordinates_in_bounds)
         # Add on the random rotation (and any other dimensions of motor action) to the bounded motor action sampled from the Nav Memory Map
-        sample = np.append(random_safe_coordinate_in_bounds, (s[2:]))
+        sample = np.append(random_safe_coordinates_in_bounds, (s[2:]))
         return sample
 
     def sample_bounds_exclude_objects(self):
@@ -370,12 +383,23 @@ class Tree(Observable):
             if self.leafnode:
                 return self.sample_bounds()
             else:
-                split_ratio = ((self.split_value - self.bounds_x[0,self.split_dim]) / 
-                               (self.bounds_x[1,self.split_dim] - self.bounds_x[0,self.split_dim]))
-                if split_ratio > np.random.random():
+                if self.lower.can_sample is True and self.greater.can_sample is True:
+                    split_ratio = ((self.split_value - self.bounds_x[0,self.split_dim]) /
+                                   (self.bounds_x[1,self.split_dim] - self.bounds_x[0,self.split_dim]))
+
+                    if split_ratio > np.random.random(): # TODO: does this really result 'weighted by volume' in practice?
+                    # if split_ratio > self.rng.random(): # TODO: does this really result 'weighted by volume' in practice?
+                        return self.lower.sample(sampling_mode={'mode':'random'})
+                    else:
+                        return self.greater.sample(sampling_mode={'mode':'random'})
+                elif self.lower.can_sample is False and self.greater.can_sample is False:
+                    print("Cannot sample lower or greater child node, sample current instead")
+                    return self.sample_bounds()
+                elif self.lower.can_sample:
                     return self.lower.sample(sampling_mode={'mode':'random'})
-                else:
+                elif self.greater.can_sample:
                     return self.greater.sample(sampling_mode={'mode':'random'})
+
         else: 
             # Choose a leaf randomly
             return np.random.choice(self.get_leaves()).sample_bounds()
@@ -392,7 +416,18 @@ class Tree(Observable):
             lp = self.lower.max_leaf_progress
             gp = self.greater.max_leaf_progress
             maxp = max(lp, gp)
-        
+            # no point sampling either child node because they're not sampleable
+            if self.lower.can_sample is False and self.greater.can_sample is False:
+                print("Cannot sample lower or greater child, sample current node instead")
+                return self.sample_bounds()
+            # if the lower child isn't sampleable, sample greater instead
+            elif self.lower.can_sample is False:
+                print("Cannot sample lower child")
+                maxp = gp
+            # alternatively, if the greater child isn't sampleable then sample lower instead
+            elif self.greater.can_sample is False:
+                print("Cannot sample greater child")
+                maxp = lp
             if self.sampling_mode['multiscale']:                
                 tp = self.progress        
                 if tp > maxp:
@@ -921,8 +956,16 @@ class Tree(Observable):
         Apply recursively the function f_inter from leaves to root, begining with function f_leaf on leaves.
         
         """
-        return f_leaf(self) if self.leafnode else f_inter(self,
-                                                          self.lower.fold_up(f_inter, f_leaf), 
+        return f_leaf(self) if self.leafnode else f_inter(self.lower.fold_up(f_inter, f_leaf),
+                                                          self.greater.fold_up(f_inter, f_leaf))
+
+
+    def fold_up_sampleable(self, f_inter, f_leaf):
+        """
+        Apply recursively the function f_inter from leaves to root, begining with function f_leaf on leaves.
+
+        """
+        return f_leaf(self) if self.leafnode and self.can_sample else f_inter(self.lower.fold_up(f_inter, f_leaf),
                                                           self.greater.fold_up(f_inter, f_leaf))
 
 
