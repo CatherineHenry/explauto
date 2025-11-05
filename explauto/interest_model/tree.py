@@ -321,13 +321,13 @@ class Tree(Observable):
         def add_lower_and_greater_with_parent(fl, fg):
             return [self] + fl + fg
 
-    def get_leaves(self):
         def leaf_as_list(leaf):
             return [leaf]
 
         return self.fold_up(f_inter=add_lower_and_greater_with_parent, f_leaf=leaf_as_list)
 
 
+    def get_leaves(self, only_sampleable=False):
         """
         Get the list of all leaves.
         """
@@ -336,7 +336,19 @@ class Tree(Observable):
         def add_lower_and_greater(fl, fg):
             return fl + fg
 
-    # TODO: fix checkpointing by removing and uncomment if we need (Note: was used in test_tree script). Can't save tree w/ lambdas
+        def leaf_as_list(leaf):
+                return [leaf]
+
+        if only_sampleable:
+            return self.fold_up_sampleable(f_inter=add_lower_and_greater, f_leaf=leaf_as_list)
+        else:
+            return self.fold_up(f_inter=add_lower_and_greater, f_leaf=leaf_as_list)
+
+        # Note: Removed lambda so we can checkpoint the model (can't pickle tree with lambda iirc)
+        # return self.fold_up(lambda n, fl, fg: fl + fg, lambda leaf: [leaf])
+
+
+    # TODO: Can't save tree pickle w/ lambdas. fixed checkpointing by removing. Uncomment if we need (Note: was used in test_tree script).
     # def depth(self):
     #     """
     #     Compute the depth of the tree (depth of a leaf=0).
