@@ -317,22 +317,18 @@ class Tree(Observable):
         Get the list of all nodes.
         
         """
-        return self.fold_up(f_inter=self.add_lower_and_greater_with_parent, f_leaf=self.leaf_as_list)
-
-    def add_lower_and_greater_with_parent(self, fl, fg):
-        return [self] + fl + fg
+        # Inline functions here best aligns with original implementation using lambda, and allows for sharing the fold_up function, but there is probably a better way
+        def add_lower_and_greater_with_parent(fl, fg):
+            return [self] + fl + fg
 
     def get_leaves(self):
         """
         Get the list of all leaves.
-        
         """
-        return self.fold_up(f_inter=self.add_lower_and_greater, f_leaf =self.leaf_as_list)
 
-    def leaf_as_list(self, leaf):
-        return [leaf]
-    def add_lower_and_greater(self, fl, fg):
-        return fl + fg
+        # Inline functions here best aligns with original implementation using lambda, and allows for sharing the fold_up function, but there is probably a better way
+        def add_lower_and_greater(fl, fg):
+            return fl + fg
 
     # TODO: fix checkpointing by removing and uncomment if we need (Note: was used in test_tree script). Can't save tree w/ lambdas
     # def depth(self):
