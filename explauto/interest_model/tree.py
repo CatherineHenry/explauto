@@ -10,6 +10,8 @@ import copy
 
 import time
 import numpy as np
+import random
+
 import matplotlib.pyplot as plt
 import random
 
@@ -44,7 +46,12 @@ class InterestTree(InterestModel, Observable):
                  progress_measure, 
                  sampling_mode,
                  plot_objects=None,
-                 robot_nav_memory_map=None):
+                 robot_nav_memory_map=None,
+                 rand_seed=None,
+                 region_deletion=False):
+
+        self.rand_seed = rand_seed
+        self.region_deletion_rng = np.random.default_rng(rand_seed)
 
         self.conf = conf
         self.bounds = self.conf.bounds[:, expl_dims]
@@ -57,7 +64,7 @@ class InterestTree(InterestModel, Observable):
         self.data_y = None # list of reached sensory effect
         self.data_c = None # list of competence measures
         self.data_flow_uuid = None # list of flow ids
-
+        self.region_deletion = region_deletion
         self.tree = Tree(self.get_data_x,
                          np.array(self.bounds, dtype=float),
                          self.get_data_y,
@@ -71,7 +78,8 @@ class InterestTree(InterestModel, Observable):
                          sampling_mode=sampling_mode,
                          idxs=[],
                          plot_objects=plot_objects,
-                         robot_nav_memory_map=robot_nav_memory_map)
+                         robot_nav_memory_map=robot_nav_memory_map,
+                         region_deletion_rng=self.region_deletion_rng)
         
         InterestModel.__init__(self, expl_dims)
         Observable.__init__(self)
@@ -106,7 +114,38 @@ class InterestTree(InterestModel, Observable):
     
     def max_leaf_progress(self):
         return self.tree.max_leaf_progress
-    
+
+    def random_walk_region_deletion(self, tree, pathing=None):
+        # Will recurse until it either hits a leaf or a region is deleted
+        if pathing is None:
+            pathing = []
+        if tree.leafnode: # we shouldn't get here except for root level
+            # print("hit a leaf, skipped region deletion")
+            return None
+        # todo: idk if I like this, since it has a ton of early movement because with only 4 regions almost every point results in a region with no lower lower
+        # elif tree.lower.lower is None or np.random.uniform() < 0.15: # automatically increase likelihood of nuking as we get deeper into tree bc Bernoulli Process
+        # only enters random walk 30% of the time, as it walks there is only 20% chance of removing upper and lower nodes
+        # elif np.random.uniform() < 0.2: # automatically increase likelihood of nuking as we get deeper into tree bc Bernoulli Process
+        elif self.region_deletion_rng.random() < 0.2: # automatically increase likelihood of nuking as we get deeper into tree bc Bernoulli Process
+            tree.leafnode = True
+            tree.lower = None
+            tree.greater = None
+            print(f"[{datetime.now()}] region deleted! Split {tree.split_value} along dimension {tree.split_dim} with density {tree.density()} and pathing: {pathing}")
+            return {'split_value': tree.split_value, 'split_dim': tree.split_dim, 'density': tree.density()}
+        # elif np.random.uniform() < 0.5:
+        #     pathing.append("lower")
+        #     random_walk(tree.lower, pathing)
+        # else:
+        #     pathing.append("greater")
+        #     random_walk(tree.greater, pathing)
+        # Travel down path with the greatest density (this deviates from true random)
+        if tree.lower.density() > tree.greater.density():
+            pathing.append(f"lower (density: {tree.lower.density()})")
+            return self.random_walk_region_deletion(tree.lower, pathing)
+        else:
+            pathing.append(f"greater (density: {tree.greater.density()})")
+            return self.random_walk_region_deletion(tree.greater, pathing)
+
     def update(self, xy, ms, flow_uuid=None):
         """
         data_x will be either the motor vector or sensory vector depending on exploration dimensions.
@@ -139,6 +178,13 @@ class InterestTree(InterestModel, Observable):
             self.data_flow_uuid = np.array([flow_uuid])
         else:
             self.data_flow_uuid = np.append(self.data_flow_uuid, np.array([flow_uuid]), axis=0)
+
+        # Catherine TODO: is this the right spot for this?
+        # TODO: put in so only triggers if experiment f, so have it default to never (0) unless f is set, in which case use f
+        if self.region_deletion:
+            # if np.random.uniform() < 0.3: # 30% of time traverse the tree and possibly delete a region
+            if self.region_deletion_rng.random() < 0.3: # 30% of time traverse the tree and possibly delete a region
+                explosions = self.random_walk_region_deletion(self.tree)
 
         self.tree.add(np.shape(self.data_x)[0] - 1)
 
@@ -224,8 +270,11 @@ class Tree(Observable):
                  idxs=None, 
                  split_dim=0,
                  plot_objects=None,
-                 robot_nav_memory_map=None):
+                 robot_nav_memory_map=None,
+                 region_deletion_rng=None
+                 ):
 
+        self.region_deletion_rng = region_deletion_rng
         self.get_data_x = get_data_x
         self.bounds_x = np.array(bounds_x, dtype=np.float64)
         self.get_data_y = get_data_y
@@ -648,8 +697,9 @@ class Tree(Observable):
             split_dim_data = self.get_data_x()[self.idxs, self.split_dim] # data on split dim
             split_min = min(split_dim_data)
             split_max = max(split_dim_data)
-            split_value = split_min + np.random.rand() * (split_max - split_min)
-            
+            # split_value = split_min + np.random.rand() * (split_max - split_min)
+            split_value = split_min + self.region_deletion_rng.random() * (split_max - split_min)
+
         elif self.split_mode == 'median':
             # Split on median (which fall on the middle of two points for even max_points_per_region) 
             # of node's points on split dimension
@@ -673,7 +723,8 @@ class Tree(Observable):
                         
             if len(self.idxs) > self.max_points_per_region:
                 m = self.max_points_per_region # Constant that might be tuned: number of random split values to choose between
-                rand_splits = split_min + np.random.rand(m) * (split_max - split_min)
+                # rand_splits = split_min + np.random.rand(m) * (split_max - split_min)
+                rand_splits = split_min + self.region_deletion_rng.random(m) * (split_max - split_min)
                 splits_fitness = np.zeros(m)
                 for i in range(m):
                     lower_idx = list(np.array(self.idxs)[np.nonzero(split_dim_data <= rand_splits[i])[0]])
@@ -737,21 +788,21 @@ class Tree(Observable):
         
         g_bounds_x = np.array(self.bounds_x)
         g_bounds_x[0, self.split_dim] = split_value
-        
-        self.lower = Tree(self.get_data_x, 
-                         l_bounds_x,
-                         self.get_data_y,
-                         self.get_data_flow_uuid,
-                         self.get_data_c, 
-                         self.max_points_per_region, 
-                         self.max_depth - 1,
-                         self.split_mode, 
-                         self.progress_win_size, 
-                         self.progress_measure, 
-                         self.sampling_mode, 
-                         idxs = lower_idx, 
-                         split_dim = split_dim,
-                          robot_nav_memory_map=self.robot_nav_memory_map)
+        self.lower = Tree(self.get_data_x,
+                          l_bounds_x,
+                          self.get_data_y,
+                          self.get_data_flow_uuid,
+                          self.get_data_c,
+                          self.max_points_per_region,
+                          self.max_depth - 1,
+                          self.split_mode,
+                          self.progress_win_size,
+                          self.progress_measure,
+                          self.sampling_mode,
+                          idxs = lower_idx,
+                          split_dim = split_dim,
+                          robot_nav_memory_map=self.robot_nav_memory_map,
+                          region_deletion_rng=self.region_deletion_rng)
         
         self.greater = Tree(self.get_data_x, 
                             g_bounds_x,
@@ -766,7 +817,8 @@ class Tree(Observable):
                             self.sampling_mode, 
                             idxs = greater_idx, 
                             split_dim = split_dim,
-                            robot_nav_memory_map=self.robot_nav_memory_map)
+                            robot_nav_memory_map=self.robot_nav_memory_map,
+                            region_deletion_rng=self.region_deletion_rng)
 
     def calc_tree_variance_of_cos_sims(self, tree_sensory):
         sensory_combinations_idxs = list(combinations(range(len(tree_sensory)), 2))
@@ -1407,19 +1459,21 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                        'param':0.1,
                                                                        'multiscale':False,
                                                                        'volume':True},
-                                                            'plot_objects': [cat_blob_plot_obj, elephant_blob_plot_obj]},
+                                                    'plot_objects': [cat_blob_plot_obj, elephant_blob_plot_obj],
+                                                    'region_deletion':False},
                                            'cozmo_clip': {'max_points_per_region': 30, # twenty seems good so far
-                                                            'max_depth': 50,
-                                                            'split_mode': 'best_interest_diff',
-                                                            'competence_measure': competence_cos_dist_exp,
-                                                            'progress_win_size': 10, # TODO try 15?
-                                                            'progress_measure': 'abs_deriv_smooth',
-                                                            'sampling_mode': {'mode':'epsilon_greedy',
-                                                                              'param':0.1,
-                                                                              'multiscale':False,
-                                                                              'volume':True},
-                                                            'plot_objects': [cat_plot_obj, elephant_plot_obj]},
-                                           'cozmo_clip_cos_sim_split': {'max_points_per_region': 30, # twenty seems good so far
+                                                    'max_depth': 50,
+                                                    'split_mode': 'best_interest_diff',
+                                                    'competence_measure': competence_cos_dist_exp,
+                                                    'progress_win_size': 10, # TODO try 15?
+                                                    'progress_measure': 'abs_deriv_smooth',
+                                                    'sampling_mode': {'mode':'epsilon_greedy',
+                                                                      'param':0.1,
+                                                                      'multiscale':False,
+                                                                      'volume':True},
+                                                    'plot_objects': [cat_plot_obj, elephant_plot_obj],
+                                                    'region_deletion':False},
+                                           'cozmo_clip_cos_sim_split': {'max_points_per_region': 10, #30 # twenty seems good so far
                                                      'max_depth': 50,
                                                      'split_mode': 'variance_of_cos_sim',
                                                      'competence_measure': competence_cos_dist_exp,
@@ -1429,8 +1483,9 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                        'param':0.1,
                                                                        'multiscale':False,
                                                                        'volume':True},
-                                                    'plot_objects': [cat_plot_obj, elephant_plot_obj]},
-                                           'cozmo_clip_cos_sim_split_and_learning_prog': {'max_points_per_region': 30, # twenty seems good so far
+                                                    'plot_objects': [cat_plot_obj, elephant_plot_obj],
+                                                    'region_deletion':False},
+                                           'cozmo_clip_cos_sim_split_and_learning_prog': {'max_points_per_region': 5, #5 for developing! use 30 normally #30, # twenty seems good so far
                                                      'max_depth': 50,
                                                      'split_mode': 'variance_of_cos_sim',
                                                      'competence_measure': competence_cos_dist_exp,
@@ -1440,7 +1495,30 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                        'param':0.1,
                                                                        'multiscale':False,
                                                                        'volume':True},
-                                                    'plot_objects': [cat_plot_obj, elephant_plot_obj]},
+                                                    'plot_objects': [cat_plot_obj, elephant_plot_obj],
+                                                    'region_deletion':False},
+                                           'cozmo_clip_cos_sim_split_random_sampling': {'max_points_per_region': 10, #30 # twenty seems good so far
+                                                    'max_depth': 50,
+                                                    'split_mode': 'variance_of_cos_sim',
+                                                    'competence_measure': competence_cos_dist_exp,
+                                                    'progress_win_size': 5, #10, # TODO try 15?
+                                                    'progress_measure': 'abs_deriv_smooth',
+                                                    'sampling_mode': {'mode':'random',
+                                                                      'multiscale':False,
+                                                                      'volume':False}, # Do not even weight random by volume, do true random
+                                                    'plot_objects': [cat_plot_obj, elephant_plot_obj],
+                                                    'region_deletion':False},
+                                           'cozmo_clip_cos_sim_split_with_region_deletion': {'max_points_per_region': 10, #30 # twenty seems good so far
+                                                    'max_depth': 50,
+                                                    'split_mode': 'variance_of_cos_sim',
+                                                    'competence_measure': competence_cos_dist_exp,
+                                                    'progress_win_size': 5, #10, # TODO try 15?
+                                                    'progress_measure': 'abs_deriv_smooth',
+                                                    'sampling_mode': {'mode':'random',
+                                                                      'multiscale':False,
+                                                                      'volume':True}, # Do not even weight random by volume, do true random
+                                                    'plot_objects': [cat_plot_obj, elephant_plot_obj],
+                                                    'region_deletion':True},
                                            })}
 
 
