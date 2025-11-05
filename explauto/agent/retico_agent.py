@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class ReticoAgent(Observable):
-    def __init__(self, conf, sm_model, im_model, n_bootstrap=0, execution_uuid = None, execution_date_timestamp = None, context_mode=None, save_data=False, experiment_name=None):
+    def __init__(self, conf, sm_model, im_model, n_bootstrap=0, execution_uuid = None, execution_date_timestamp = None, context_mode=None, save_data=False, experiment_name=None, rand_seed=None):
         Observable.__init__(self)
         self.conf = conf
         self.ms = np.zeros(self.conf.ndims)
@@ -31,7 +31,7 @@ class ReticoAgent(Observable):
         self.execution_date_timestamp = execution_date_timestamp
         self.save_data = save_data
         self.experiment_name = experiment_name
-
+        self.rand_seed = rand_seed
 
     @classmethod
     def from_classes(cls,
@@ -140,7 +140,11 @@ class ReticoAgent(Observable):
         .. note:: This correspond to motor babbling if expl_dims=self.conf.m_dims and inf_dims=self.conf.s_dims and to  goal babbling if expl_dims=self.conf.s_dims and inf_dims=self.conf.m_dims.
         """
         if context_ms is None:
-            self.x = self.choose(flow_uuid=flow_uuid) # choose the next motor or sensory goal (depending on exploration space)
+            if manual_choice is not None:
+                self.x = manual_choice
+            else:
+                self.x = self.choose(flow_uuid=flow_uuid) # choose the next motor or sensory goal (depending on exploration space)
+
             self.y = self.infer(self.expl_dims, self.inf_dims, self.x, flow_uuid)
         else:
             if self.context_mode["mode"] == 'mdmsds':
