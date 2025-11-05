@@ -127,7 +127,7 @@ class ReticoAgent(Observable):
         """
         return bounds_min_max(s, self.conf.s_mins, self.conf.s_maxs)
 
-    def produce(self, context_ms=None, flow_uuid=None):
+    def produce(self, context_ms=None, flow_uuid=None, manual_choice=None):
         """ Exploration (see the `Explauto introduction <about.html>`__ for more detail):
 
         * Choose a value x on expl_dims according to the interest model
