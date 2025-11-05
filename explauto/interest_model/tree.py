@@ -89,8 +89,18 @@ class InterestTree(InterestModel, Observable):
         return self.data_flow_uuid
     
     def sample(self):
-        return self.tree.sample()
-    
+        # TODO: if it can't find a single node to sample that has free points then the program should end
+        sampled_points = self.tree.sample()
+        sample_attempts = 0
+        while sampled_points is None:
+            sample_attempts += 1
+            print(f"Was not able to sample point, trying to sample again {sample_attempts}/{self.tree.n_children}")
+            sampled_points = self.tree.sample()
+            if sample_attempts > self.tree.n_children:
+                print(f"Attempted to sample {sample_attempts} times. Exiting program")
+                raise IndexError
+        return sampled_points
+
     def progress(self):
         return self.tree.progress
     
