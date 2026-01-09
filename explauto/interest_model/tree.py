@@ -47,7 +47,6 @@ class InterestTree(InterestModel, Observable):
                  progress_measure, 
                  sampling_mode,
                  plot_objects=None,
-                 robot_nav_memory_map=None,
                  rand_seed=None,
                  region_deletion=False):
 
@@ -57,13 +56,14 @@ class InterestTree(InterestModel, Observable):
         self.conf = conf
         self.bounds = self.conf.bounds[:, expl_dims]
         self.competence_measure = competence_measure
-        
+
         if progress_win_size >= max_points_per_region:
             raise ValueError("WARNING: progress_win_size should be < max_points_per_region")
-        
+
         self.data_x = None # list of target motor or sensory goals 'x'
         self.data_y = None # list of reached sensory effect
         self.data_c = None # list of competence measures
+        self.data_nav_memory_map = None # list of navigation memory maps
         self.data_flow_uuid = None # list of flow ids
         self.region_deletion = region_deletion
         self.tree = Tree(self.get_data_x,
@@ -71,6 +71,7 @@ class InterestTree(InterestModel, Observable):
                          self.get_data_y,
                          self.get_data_flow_uuid,
                          self.get_data_c,
+                         self.get_data_nav_memory_map,
                          max_points_per_region=max_points_per_region,
                          max_depth=max_depth,
                          split_mode=split_mode,
@@ -79,7 +80,6 @@ class InterestTree(InterestModel, Observable):
                          sampling_mode=sampling_mode,
                          idxs=[],
                          plot_objects=plot_objects,
-                         robot_nav_memory_map=robot_nav_memory_map,
                          region_deletion_rng=self.region_deletion_rng)
         
         InterestModel.__init__(self, expl_dims)
@@ -96,6 +96,9 @@ class InterestTree(InterestModel, Observable):
 
     def get_data_flow_uuid(self):
         return self.data_flow_uuid
+
+    def get_data_nav_memory_map(self):
+        return self.data_nav_memory_map
     
     def sample(self):
         # TODO: if it can't find a single node to sample that has free points then the program should end
@@ -147,7 +150,7 @@ class InterestTree(InterestModel, Observable):
             pathing.append(f"greater (density: {tree.greater.density()})")
             return self.random_walk_region_deletion(tree.greater, pathing)
 
-    def update(self, xy, ms, flow_uuid=None):
+    def update(self, xy, ms, flow_uuid=None, nav_memory_map=None):
         """
         data_x will be either the motor vector or sensory vector depending on exploration dimensions.
         :param xy: Target SM Space (concat Motor x Sensory vectors)
@@ -179,6 +182,12 @@ class InterestTree(InterestModel, Observable):
             self.data_flow_uuid = np.array([flow_uuid])
         else:
             self.data_flow_uuid = np.append(self.data_flow_uuid, np.array([flow_uuid]), axis=0)
+
+        if self.data_nav_memory_map is None: # keep track of flow uuids for training WAC classifier later (simplifies syncing the data for each subspace)
+            self.data_nav_memory_map = np.array([nav_memory_map])
+        else:
+            self.data_nav_memory_map = np.append(self.data_nav_memory_map, np.array([nav_memory_map]), axis=0)
+
 
         # Catherine TODO: is this the right spot for this?
         # TODO: put in so only triggers if experiment f, so have it default to never (0) unless f is set, in which case use f
@@ -262,6 +271,7 @@ class Tree(Observable):
                  get_data_y,
                  get_data_flow_uuid,
                  get_data_c,
+                 get_data_nav_memory_map,
                  max_points_per_region,
                  max_depth,
                  split_mode,
@@ -271,7 +281,6 @@ class Tree(Observable):
                  idxs=None,
                  split_dim=0,
                  plot_objects=None,
-                 robot_nav_memory_map=None,
                  region_deletion_rng=None
                  ):
 
@@ -281,6 +290,7 @@ class Tree(Observable):
         self.get_data_y = get_data_y
         self.get_data_flow_uuid = get_data_flow_uuid
         self.get_data_c = get_data_c
+        self.get_data_nav_memory_map = get_data_nav_memory_map
         self.max_points_per_region = max_points_per_region
         self.max_depth = max_depth
         self.split_mode = split_mode
@@ -304,8 +314,6 @@ class Tree(Observable):
         self.can_sample = True # If there are no free spaces to travel to in the region this is set to false and the leaf is passed over when sampling
         self.progress = 0 # potential learning progress (will select points where this is high)
         self.max_leaf_progress = 0
-        self.robot_nav_memory_map = robot_nav_memory_map
-
         if self.n_children > self.max_points_per_region:
             self.split()
         self.update_max_progress()
@@ -409,7 +417,7 @@ class Tree(Observable):
                 else:
 
                     intersection_coordinate = np.array([[x_intersection_min, y_intersection_min],[x_intersection_max, y_intersection_max]])
-                    print(f"trimmed coordinate: {coordinate} to {intersection_coordinate}")
+                    # print(f"trimmed coordinate: {coordinate} to {intersection_coordinate}")
                     safe_coordinate_regions_in_bounds.append(intersection_coordinate)
         return safe_coordinate_regions_in_bounds
 
@@ -442,18 +450,14 @@ class Tree(Observable):
         # applicable elements of pose in this situation are position.x position.y
         # and rotation.angle_z.
         # x,y are in mm it looks like. So measure mm of exploration space for min/max
-        ### Catherine first attempt at this
-        # s = rand_bounds(self.bounds_x).flatten() # bounds_x here are the full motor space
-        # if self.robot_world.nav_memory_map is not None: # only check if nav memory map is set
-        #     while self.robot_world.nav_memory_map.get_content(s[0], s[1]) not in [NodeContentTypes.ClearOfObstacle, NodeContentTypes.ClearOfCliff]: # check x/y of s (not z)
-        #         s = rand_bounds(self.bounds_x).flatten() # sample new point until it's clear of obstacle
-        # return s
 
-        safe_coordinate_regions_in_bounds = get_safe_coordinates_within_region_bounds()
+        safe_coordinate_regions_in_bounds = self.get_safe_coordinates_within_region_bounds()
 
         # if there are no safe coordinate regions in bounds, then we cannot sample this region
         if len(safe_coordinate_regions_in_bounds) == 0:
             self.can_sample = False
+            min_bounds = self.bounds_x[0, :]
+            max_bounds = self.bounds_x[1, :]
             print(f"No safe coordinates in bounds (dimension {self.split_dim} min: {min_bounds} max: {max_bounds})!")
             return None
 
@@ -733,7 +737,8 @@ class Tree(Observable):
         Split the leaf node.
         
         """
-        self.emit("split", f"Splitting: {self.split_mode}")
+        print("splitting")
+        # self.emit("split", f"Splitting: {self.split_mode}") # comment out, was erroring in wip deletion notebook?
         if self.split_mode == 'random':
             # Split randomly between min and max of node's points on split dimension
             split_dim_data = self.get_data_x()[self.idxs, self.split_dim] # data on split dim
@@ -792,7 +797,9 @@ class Tree(Observable):
             split_dim_data = self.get_data_x()[self.idxs, self.split_dim] # data on split dim
             split_min = min(split_dim_data)
             split_max = max(split_dim_data)
-            m = self.max_points_per_region - 1  # Constant that might be tuned: number of random split values to choose between
+            m = (len(split_dim_data) - 1)
+            print(f"Trying out {m} splits") # need to move from max points per region to the region # because of the reflection re-splits
+            # m = self.max_points_per_region - 1  # Constant that might be tuned: number of random split values to choose between
             # rand_splits = split_min + np.random.rand(m) * (split_max - split_min) # array of random vals above split min
             splits = (np.sort(split_dim_data)[0:-1] + np.sort(split_dim_data)[1:]) / 2
             splits_fitness = np.zeros(m)
@@ -814,7 +821,7 @@ class Tree(Observable):
         else:
             raise NotImplementedError
 
-        self.emit("split", f"Split dimension: {self.split_dim}, value: {split_value}")
+        # self.emit("split", f"Split dimension: {self.split_dim}, value: {split_value}") # todo: uncomment - it's angry in test delete nb
     
         lower_idx = list(np.array(self.idxs)[np.nonzero(split_dim_data <= split_value)[0]])
         greater_idx = list(np.array(self.idxs)[np.nonzero(split_dim_data > split_value)[0]])
@@ -835,6 +842,7 @@ class Tree(Observable):
                           self.get_data_y,
                           self.get_data_flow_uuid,
                           self.get_data_c,
+                          self.get_data_nav_memory_map,
                           self.max_points_per_region,
                           self.max_depth - 1,
                           self.split_mode,
@@ -843,7 +851,6 @@ class Tree(Observable):
                           self.sampling_mode,
                           idxs = lower_idx,
                           split_dim = split_dim,
-                          robot_nav_memory_map=self.robot_nav_memory_map,
                           region_deletion_rng=self.region_deletion_rng)
         
         self.greater = Tree(self.get_data_x,
@@ -851,6 +858,7 @@ class Tree(Observable):
                             self.get_data_y,
                             self.get_data_flow_uuid,
                             self.get_data_c,
+                            self.get_data_nav_memory_map,
                             self.max_points_per_region,
                             self.max_depth - 1,
                             self.split_mode,
@@ -859,7 +867,6 @@ class Tree(Observable):
                             self.sampling_mode,
                             idxs = greater_idx,
                             split_dim = split_dim,
-                            robot_nav_memory_map=self.robot_nav_memory_map,
                             region_deletion_rng=self.region_deletion_rng)
 
     def calc_tree_variance_of_cos_sims(self, tree_sensory):
