@@ -390,14 +390,122 @@ class Tree(Observable):
     def get_safe_coordinates_within_region_bounds(self):
         # Get the coordinates of all the leaf nodes that are safe (object/cliff/edge free) from the  Nav Mem Map
         safe_coordinate_regions = []
-        self.robot_nav_memory_map.quad_tree_safe_coordinates(self.robot_nav_memory_map.root_node, safe_coordinate_regions)
+        unsafe_coordinate_regions = []
+        latest_nav_map = self.get_data_nav_memory_map()[-1]
+
+        latest_nav_map.quad_tree_safe_and_unsafe_coordinates(latest_nav_map.root_node, safe_coordinate_regions, unsafe_coordinate_regions)
+
+        # pad unsafe coordinate regions so they have a border large enough to prevent selecting an action that would result in robot collision
+        # It appears if a pose is selected where the robot would overlap/collide with the object, path planning is cancelled and shortest path is used
+        for unsafe_coordinate_region in unsafe_coordinate_regions:
+            # min x and y
+            unsafe_coordinate_region[0] = unsafe_coordinate_region[0] - 60 # 40 is arbitrary ... testing and seeing whats works
+            # max x and y
+            unsafe_coordinate_region[1] = unsafe_coordinate_region[1] + 60
+
+        safe_coordinate_regions_avoiding_collision = []
+        dropped_safe_coordinates = []
+         # trim safe coordinates so they don't overlap with the padded unsafe coordinates
+        for safe_coordinate in safe_coordinate_regions:
+            safe_region_min = safe_coordinate[0] # x,y coords of region min
+            safe_region_max = safe_coordinate[1] # x,y coords of region max
+            coordinate_is_safe_from_collision = True
+            for unsafe_coordinate in unsafe_coordinate_regions:
+                unsafe_region_min = unsafe_coordinate[0] # x,y coords of region min
+                unsafe_region_max = unsafe_coordinate[1] # x,y coords of region max
+
+                if (safe_region_min[0] >= unsafe_region_min[0] and safe_region_max[0] <= unsafe_region_max[0] and safe_region_min[1] >= unsafe_region_min[1] and safe_region_max[1] <= unsafe_region_max[1]):
+                    # Safe navmap region is entirely inside of the padded unsafe region
+                    # No trimming will help
+                    # The region isn't free from collision with a point, no reason to keep checking other regions
+                    coordinate_is_safe_from_collision = False
+                    dropped_safe_coordinates.append(safe_coordinate)
+                    break
+                else:
+                    # there is either no overlap or there is partial overlap. If partial, trim to fit
+                    x_intersection_min = max(safe_region_min[0], unsafe_region_min[0])
+                    y_intersection_min = max(safe_region_min[1], unsafe_region_min[1])
+                    x_intersection_max = min(safe_region_max[0], unsafe_region_max[0])
+                    y_intersection_max = min(safe_region_max[1], unsafe_region_max[1])
+
+                    # check if the intersection results in invalid regions
+                    if (x_intersection_min >= x_intersection_max or y_intersection_min >= y_intersection_max):
+                        # The region is fully free from collision with a point, no reason to keep checking other regions
+                        continue
+                    else:
+
+                        # We have the intersection, so for first pass, just the rectangle who's new corner is the intersection corner.
+                        # TODO: Can explore dividing trimmed rectangle into three and adding to the list but then would need to check those new rectangles
+                        # against all padded as well, and updating list while iterating is not ideal
+
+                        # calculate size of intersection
+                        x_intersection_size = abs(x_intersection_max - x_intersection_min)
+                        y_intersection_size = abs(y_intersection_max - y_intersection_min)
+
+
+                        # check if min and max x match intersect min/max x to see if we only shift up/down
+                        if x_intersection_min == safe_region_min[0] and x_intersection_max == safe_region_max[0]:
+                            # if y is shared on region_max and intersect_max, the region is lower than the intersect
+                            if y_intersection_max == safe_region_max[1]: # lower than intersect
+                                # only shift max y down
+                                safe_region_max[1] = safe_region_max[1] - y_intersection_size
+                            else: # above intersect
+                                # only shift min y up
+                                safe_region_min[1] = safe_region_min[1] + y_intersection_size
+
+                        # check if min/max y match intersect min/max y to see if we only shift left/right
+                        if y_intersection_min == safe_region_min[1] and y_intersection_max == safe_region_max[1]:
+                            if x_intersection_min == safe_region_min[0]: # to the right of intersect
+                                    # shift x min right
+                                    safe_region_min[0] = safe_region_min[0] + x_intersection_size
+                            else: # to left of intersect
+                                # only shift x max left
+                                safe_region_max[0] = safe_region_max[0] + x_intersection_size
+                        # if x is shared on the region_min and intersect_min, the region is to the right of the intersect
+                        if x_intersection_min == safe_region_min[0]: # to the right of intersect
+                            # if y is shared on region_max and intersect_max, the region is lower than the intersect
+                            if y_intersection_max == safe_region_max[1]: # right and lower than intersect
+                                # min x shifts right by x intersection size
+                                safe_region_min[0] = safe_region_min[0] + x_intersection_size
+                                # shit max y down by y intersection size
+                                safe_region_max[1] = safe_region_max[1] - y_intersection_size
+                            else: # right and above intersect
+                                # min x and y are shifted right by x and y intersection size
+                                safe_region_min[0] = safe_region_min[0] + x_intersection_size
+                                safe_region_min[1] = safe_region_min[1] + y_intersection_size
+                                # max coordinates are unchanged
+
+                        else: # is located to the left of the intersect
+                            # if y is shared on region_max and intersect_max, the region is lower than the intersect
+                            if y_intersection_max == safe_region_max[1]: # left and lower than intersect
+                                # min coordinates are unchanged
+
+                                # max x and y are shifted left and down by x and y intersection sizes
+                                safe_region_max[0] = safe_region_max[0] - x_intersection_size
+                                safe_region_max[1] = safe_region_max[1] - y_intersection_size
+
+                            else: # left and above intersect
+                                # min y shifts up by y intersection size
+                                safe_region_min[1] = safe_region_min[1] + y_intersection_size
+                                # max x shifts left by x intersection size
+                                safe_region_max[0] = safe_region_max[0] - x_intersection_size
+
+                        # update safe_coordinate so future checks take it into consideration. Any previously passed checks would have either
+                        # been similarly trimmed or fully outside the collision boundary so not impacted by this change
+                        safe_coordinate = np.array([[safe_region_min[0], safe_region_min[1]],[safe_region_max[0], safe_region_max[1]]])
+
+                        # print(f"trimmed coordinate: {coordinate} to {intersection_coordinate}")
+                        # safe_coordinate_regions_avoiding_collision.append(intersection_coordinate)
+            if coordinate_is_safe_from_collision:
+                safe_coordinate_regions_avoiding_collision.append(safe_coordinate)
+
 
         # Select all the safe leaf node coordinates from Nav Mem Map that are in the bounds of the region being sampled
         # Any intersecting coorinates are trimmed to fit within the region being sampled.
         min_bounds = self.bounds_x[0, :]
         max_bounds = self.bounds_x[1, :]
         safe_coordinate_regions_in_bounds = []
-        for coordinate in safe_coordinate_regions:
+        for coordinate in safe_coordinate_regions_avoiding_collision:
             region_min = coordinate[0] # x,y coords of region min
             region_max = coordinate[1] # x,y coords of region max
             if (region_min[0] >= min_bounds[0] and region_max[0] <= max_bounds[0] and region_min[1] >= min_bounds[1] and region_max[1] <= max_bounds[1]):
