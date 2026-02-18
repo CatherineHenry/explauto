@@ -36,19 +36,21 @@ class InterestTree(InterestModel, Observable):
     """
     class InterestTree implements either R-IAC or SAGG-RIAC
     """
-    def __init__(self, 
-                 conf, 
-                 expl_dims, 
-                 max_points_per_region, 
+    def __init__(self,
+                 conf,
+                 expl_dims,
+                 max_points_per_region,
                  max_depth,
-                 split_mode, 
-                 competence_measure, 
-                 progress_win_size, 
-                 progress_measure, 
+                 split_mode,
+                 competence_measure,
+                 progress_win_size,
+                 progress_measure,
                  sampling_mode,
                  plot_objects=None,
                  rand_seed=None,
-                 region_deletion=False):
+                 max_turn_count=0,
+                 region_deletion=False,
+                 progressive_split_ranges=None):
 
         self.rand_seed = rand_seed
         self.region_deletion_rng = np.random.default_rng(rand_seed)
@@ -56,8 +58,15 @@ class InterestTree(InterestModel, Observable):
         self.conf = conf
         self.bounds = self.conf.bounds[:, expl_dims]
         self.competence_measure = competence_measure
+        if progressive_split_ranges:
+            if region_deletion is False:
+                raise ValueError("ERROR: To use progressive_split_ranges region_deletion MUST be True")
+            progress_win_size_ranges = progressive_split_ranges['prog_win']
+            max_points_per_region_ranges = progressive_split_ranges['max_ppr']
+            if not all([(prog_win >= max_point) for prog_win, max_point in zip(progress_win_size_ranges,max_points_per_region_ranges)]):
+                raise ValueError("WARNING: progress_win_size should be < max_points_per_region")
 
-        if progress_win_size >= max_points_per_region:
+        elif progress_win_size >= max_points_per_region:
             raise ValueError("WARNING: progress_win_size should be < max_points_per_region")
 
         self.data_x = None # list of target motor or sensory goals 'x'
@@ -80,7 +89,9 @@ class InterestTree(InterestModel, Observable):
                          sampling_mode=sampling_mode,
                          idxs=[],
                          plot_objects=plot_objects,
-                         region_deletion_rng=self.region_deletion_rng)
+                         region_deletion_rng=self.region_deletion_rng,
+                         progressive_split_ranges=progressive_split_ranges,
+                         max_turn_count=max_turn_count)
         
         InterestModel.__init__(self, expl_dims)
         Observable.__init__(self)
@@ -281,7 +292,9 @@ class Tree(Observable):
                  idxs=None,
                  split_dim=0,
                  plot_objects=None,
-                 region_deletion_rng=None
+                 region_deletion_rng=None,
+                 progressive_split_ranges=None,
+                 max_turn_count=0
                  ):
 
         self.region_deletion_rng = region_deletion_rng
@@ -291,10 +304,26 @@ class Tree(Observable):
         self.get_data_flow_uuid = get_data_flow_uuid
         self.get_data_c = get_data_c
         self.get_data_nav_memory_map = get_data_nav_memory_map
-        self.max_points_per_region = max_points_per_region
         self.max_depth = max_depth
         self.split_mode = split_mode
-        self.progress_win_size = progress_win_size
+        self.progressive_split_ranges = progressive_split_ranges
+        self.max_turn_count = max_turn_count
+        if progressive_split_ranges:
+            # Need this to update so that when we delete a region it uses whatever the latest progressive splits value is
+            # Accomplish this by dynamically calculating based on the number of 'x' values (actions) w.r.t the max # actions we will be taking
+            reached_sensory_effects = len(self.get_data_y()) # Use this to determine how many actions we have taken overall
+            progress_win_size_ranges = progressive_split_ranges['prog_win']
+            max_points_per_region_ranges = progressive_split_ranges['max_ppr']
+            prog_win_min, prog_win_max = progress_win_size_ranges
+            max_ppr_min, max_ppr_max = max_points_per_region_ranges
+            progress_win_size = np.geomspace(prog_win_min, prog_win_max, max_turn_count, endpoint=True, dtype=int)
+            max_points_per_region = np.geomspace(max_ppr_min, max_ppr_max, max_turn_count, endpoint=True, dtype=int)
+            self.max_points_per_region = max_points_per_region[reached_sensory_effects]
+            self.progress_win_size = progress_win_size[reached_sensory_effects]
+
+        else:
+            self.max_points_per_region = max_points_per_region
+            self.progress_win_size = progress_win_size
         self.progress_measure = progress_measure
         self.sampling_mode = sampling_mode
 
@@ -784,7 +813,6 @@ class Tree(Observable):
                 return np.abs(comp_end - comp_beg)
             
         elif self.progress_measure == 'bounded_smooth':
-            # absolute difference between first and last half of the window
             if len(idxs) <= 1:
                 return 0
             else:
@@ -959,7 +987,9 @@ class Tree(Observable):
                           self.sampling_mode,
                           idxs = lower_idx,
                           split_dim = split_dim,
-                          region_deletion_rng=self.region_deletion_rng)
+                          region_deletion_rng=self.region_deletion_rng,
+                          max_turn_count=self.max_turn_count,
+                          progressive_split_ranges=self.progressive_split_ranges)
         
         self.greater = Tree(self.get_data_x,
                             g_bounds_x,
@@ -975,7 +1005,9 @@ class Tree(Observable):
                             self.sampling_mode,
                             idxs = greater_idx,
                             split_dim = split_dim,
-                            region_deletion_rng=self.region_deletion_rng)
+                            region_deletion_rng=self.region_deletion_rng,
+                            max_turn_count=self.max_turn_count,
+                            progressive_split_ranges=self.progressive_split_ranges)
 
     def calc_tree_variance_of_cos_sims(self, tree_sensory):
         sensory_combinations_idxs = list(combinations(range(len(tree_sensory)), 2))
@@ -1644,7 +1676,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                      'max_depth': 50,
                                                      'split_mode': 'variance_of_cos_sim',
                                                      'competence_measure': competence_cos_dist_exp,
-                                                     'progress_win_size': 10, # TODO try 15?
+                                                     'progress_win_size': 5, #10, # TODO try 15?
                                                      'progress_measure': 'abs_deriv_smooth',
                                                      'sampling_mode': {'mode':'epsilon_greedy',
                                                                        'param':0.1,
@@ -1664,7 +1696,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                        'volume':True},
                                                     'plot_objects': [cat_plot_obj, elephant_plot_obj],
                                                     'region_deletion':False},
-                                           'cozmo_clip_cos_sim_split_random_sampling': {'max_points_per_region': 10, #30 # twenty seems good so far
+                                           'cozmo_clip_cos_sim_split_random_sampling': {'max_points_per_region': 15, #30 # twenty seems good so far
                                                     'max_depth': 50,
                                                     'split_mode': 'variance_of_cos_sim',
                                                     'competence_measure': competence_cos_dist_exp,
@@ -1675,7 +1707,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                       'volume':False}, # Do not even weight random by volume, do true random
                                                     'plot_objects': [cat_plot_obj, elephant_plot_obj],
                                                     'region_deletion':False},
-                                           'cozmo_clip_cos_sim_split_with_region_deletion': {'max_points_per_region': 10, #30 # twenty seems good so far
+                                           'cozmo_clip_cos_sim_split_with_region_deletion': {'max_points_per_region': 15, #30 # twenty seems good so far
                                                     'max_depth': 50,
                                                     'split_mode': 'variance_of_cos_sim',
                                                     'competence_measure': competence_cos_dist_exp,
@@ -1686,6 +1718,20 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                       'volume':True}, # Do not even weight random by volume, do true random
                                                     'plot_objects': [cat_plot_obj, elephant_plot_obj],
                                                     'region_deletion':True},
+                                           'cozmo_clip_cos_sim_split_progressive_split': {'max_points_per_region': 3, #30 # twenty seems good so far
+                                                                        'max_depth': 50,
+                                                                        'split_mode': 'variance_of_cos_sim',
+                                                                        'competence_measure': competence_cos_dist_exp,
+                                                                        'progress_win_size': 2, #10, # TODO try 15?
+                                                                        'progress_measure': 'abs_deriv_smooth',
+                                                                        'sampling_mode': {'mode':'epsilon_greedy',
+                                                                                          'param':0.1,
+                                                                                          'multiscale':False,
+                                                                                          'volume':True},
+                                                                        'plot_objects': [cat_plot_obj, elephant_plot_obj],
+                                                                        'region_deletion':True,
+                                                                        'progressive_split_ranges': {'max_ppr': (3, 40), 'prog_win': (2, 10)},
+                                                                                          },
                                            })}
 
 
