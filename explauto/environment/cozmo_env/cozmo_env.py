@@ -15,17 +15,16 @@ class CozmoEnvironment(Environment): #TODO: do  this environment in a cleaner wa
     """
     def __init__(self,
                  cozmo_robot: Robot,
-                 move_duration,
-                 tracker,
                  m_mins, m_maxs,
                  s_mins, s_maxs,
-                 motors=None, # IDK if we need/want with cozmo
-                 tracked_obj=None # This seems to be simulation specific (to track named object as the sensori effect?)
+                 # tracker, # Not relevant to Cozmo
+                 # move_duration=None, # not relevant with Cozmo
+                 # motors=None, # not relevant with Cozmo
+                 # tracked_obj=None # This seems to be simulation specific?
                  ):
         """"
         :param cozmo_robot: CozmoCreature instance (it can be a real or a simulated robot)
         :param list motors: list of motors used - it can directly be a motor alias, e.g.m poppy.l_arm # TODO: change to configurable cozmo motor vals. tread movement to start.
-        :param float move_duration: duration of the motor commands
         :param tracker: Tracker used to determine the tracked_obj position - when using a robot simulated with V-REP the robot itself can be the tracker.
         :param str tracked_obj: name of the object to track
         :param numpy.array m_mins: minimum motor dims
@@ -36,11 +35,10 @@ class CozmoEnvironment(Environment): #TODO: do  this environment in a cleaner wa
         """
         Environment.__init__(self, m_mins, m_maxs, s_mins, s_maxs)
         self.robot = cozmo_robot
-        self.motors = motors
-        self.move_duration = move_duration
-
-        self.tracker = tracker
-        self.tracked_obj = tracked_obj
+        # self.motors = motors
+        #
+        # self.tracker = tracker
+        # self.tracked_obj = tracked_obj
 
     def compute_motor_command(self, m_ag):
         """ Compute the motor command by restricting it to the bounds. """
@@ -56,7 +54,15 @@ class CozmoEnvironment(Environment): #TODO: do  this environment in a cleaner wa
         # TODO: this doesn't have a move duration. could do a duration wait + stop action if we wanted
         # self.robot.go_to_pose(Pose(m_env[1], 0, 0, angle_z=degrees(m_env[0])), relative_to_robot=True).wait_for_completed()
         # relative_to_robot moves point of origin for rotation from 0,0 to the robots current pose
-        self.robot.go_to_pose(Pose(m_env[0], m_env[1], 0, angle_z=degrees(m_env[2])), relative_to_robot=False).wait_for_completed() # relative to robot redefines given (origin) pose to be relative?
+        self.robot.go_to_pose(Pose(m_env[0], m_env[1], 0, angle_z=degrees(m_env[2])), relative_to_robot=False, in_parallel=True).wait_for_completed() # relative to robot redefines given (origin) pose to be relative?
+
+        ### TEMPORARY: set head angle lower to align with what it was when I did pixel function ugh
+        ## Set this to the intended forward head angle later -- to counteract the effect of go-to-pose head changes
+        # robot.set_head_angle(degrees(-9.8), accel=10.0, max_speed=10.0, duration=1,
+        #                  warn_on_clamp=True, in_parallel=False, num_retries=2).wait_for_completed()
+
+        # robot.set_head_angle(degrees(10), accel=10.0, max_speed=10.0, duration=1,
+        #                      warn_on_clamp=True, in_parallel=False, num_retries=2).wait_for_completed()
         # self.robot.turn_in_place(degrees(m_env[0])).wait_for_completed()
 
 
@@ -69,9 +75,9 @@ class CozmoEnvironment(Environment): #TODO: do  this environment in a cleaner wa
     # self.robot.turn_in_place(angle=degrees(m_env[0]), speed=Angle(m_env[1])).wait_for_completed()
         # This allows to actually apply a motor command
         # Without having a tracker
-        if self.tracker is not None: # we want to track camera, not cozmo ( in this case) so return the vector from the camera?
-            # return self.tracker.get_object_position(self.tracked_obj)
-            return self.tracker[0][0]
+        # if self.tracker is not None: # we want to track camera, not cozmo ( in this case) so return the vector from the camera?
+        #     # return self.tracker.get_object_position(self.tracked_obj)
+        #     return self.tracker[0][0]
 
     def reset(self):
         """ Resets simulation and does nothing when using a real robot. """
