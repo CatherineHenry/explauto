@@ -63,7 +63,7 @@ class InterestTree(InterestModel, Observable):
                 raise ValueError("ERROR: To use progressive_split_ranges region_deletion MUST be True")
             progress_win_size_ranges = progressive_split_ranges['prog_win']
             max_points_per_region_ranges = progressive_split_ranges['max_ppr']
-            if not all([(prog_win >= max_point) for prog_win, max_point in zip(progress_win_size_ranges,max_points_per_region_ranges)]):
+            if not all([(prog_win <= max_point) for prog_win, max_point in zip(progress_win_size_ranges,max_points_per_region_ranges)]):
                 raise ValueError("WARNING: progress_win_size should be < max_points_per_region")
 
         elif progress_win_size >= max_points_per_region:
