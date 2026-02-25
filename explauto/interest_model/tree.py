@@ -318,8 +318,9 @@ class Tree(Observable):
             max_points_per_region_ranges = progressive_split_ranges['max_ppr']
             prog_win_min, prog_win_max = progress_win_size_ranges
             max_ppr_min, max_ppr_max = max_points_per_region_ranges
-            progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, max_turn_count, endpoint=True, dtype=int)
-            max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, max_turn_count, endpoint=True, dtype=int)
+            # reached_sensory_effects + max_turn_count to take into account any prior runs
+            progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, reached_sensory_effects + max_turn_count, endpoint=True, dtype=int)
+            max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, reached_sensory_effects + max_turn_count, endpoint=True, dtype=int)
             self.max_points_per_region = max_points_per_region_distribution[reached_sensory_effects]
             self.progress_win_size = progress_win_size_distribution[reached_sensory_effects]
             print(f"Using max_points_per_region {self.max_points_per_region} with progress_win_size {self.progress_win_size}")
