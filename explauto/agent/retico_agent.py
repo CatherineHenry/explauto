@@ -186,7 +186,7 @@ class ReticoAgent(Observable):
             self.sensorimotor_model.update(self.m, s)
             self.interest_model.update(np.hstack((self.m, self.s)), np.hstack((self.m, s)), flow_uuid=flow_uuid, nav_memory_map=nav_memory_map)
             if self.save_data and self.n_perceived > 0 and self.n_perceived % 5 == 0:  # Every 5 perceived
-                self.save(f"./IAC_output_data/agent_{self.execution_uuid}.pickle")
+                self.save(f"./IAC_output_data/{self.execution_date_timestamp}/agent_{self.execution_uuid}.pickle")
         else:
             if self.context_mode["mode"] == 'mdmsds':  
                 m = self.m[:len(self.m)//2]
