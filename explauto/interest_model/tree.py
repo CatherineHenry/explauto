@@ -1711,11 +1711,11 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                       'volume':False}, # Do not even weight random by volume, do true random
                                                     'plot_objects': [cat_plot_obj, elephant_plot_obj],
                                                     'region_deletion':False},
-                                           'cozmo_clip_cos_sim_split_with_region_deletion': {'max_points_per_region': 15, #30 # twenty seems good so far
+                                           'cozmo_clip_cos_sim_split_with_region_deletion': {'max_points_per_region': 10, #30 # twenty seems good so far
                                                     'max_depth': 50,
                                                     'split_mode': 'variance_of_cos_sim',
                                                     'competence_measure': competence_cos_dist_exp,
-                                                    'progress_win_size': 5, #10, # TODO try 15?
+                                                    'progress_win_size': 10, #10, # TODO try 15?
                                                     'progress_measure': 'abs_deriv_smooth',
                                                     'sampling_mode': {'mode':'random',
                                                                       'multiscale':False,
