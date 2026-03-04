@@ -75,6 +75,7 @@ class InterestTree(InterestModel, Observable):
         self.data_nav_memory_map = None # list of navigation memory maps
         self.data_flow_uuid = None # list of flow ids
         self.region_deletion = region_deletion
+        self.max_turn_count = max_turn_count
         self.tree = Tree(self.get_data_x,
                          np.array(self.bounds, dtype=float),
                          self.get_data_y,
@@ -91,7 +92,7 @@ class InterestTree(InterestModel, Observable):
                          plot_objects=plot_objects,
                          region_deletion_rng=self.region_deletion_rng,
                          progressive_split_ranges=progressive_split_ranges,
-                         max_turn_count=max_turn_count)
+                         max_turn_count=self.max_turn_count)
         
         InterestModel.__init__(self, expl_dims)
         Observable.__init__(self)
