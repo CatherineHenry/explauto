@@ -93,7 +93,7 @@ class InterestTree(InterestModel, Observable):
                          region_deletion_rng=self.region_deletion_rng,
                          progressive_split_ranges=progressive_split_ranges,
                          max_turn_count=self.max_turn_count)
-        
+
         InterestModel.__init__(self, expl_dims)
         Observable.__init__(self)
 
@@ -111,7 +111,7 @@ class InterestTree(InterestModel, Observable):
 
     def get_data_nav_memory_map(self):
         return self.data_nav_memory_map
-    
+
     def sample(self):
         # TODO: if it can't find a single node to sample that has free points then the program should end
         sampled_points = self.tree.sample()
@@ -127,7 +127,7 @@ class InterestTree(InterestModel, Observable):
 
     def progress(self):
         return self.tree.progress
-    
+
     def max_leaf_progress(self):
         return self.tree.max_leaf_progress
 
@@ -215,10 +215,10 @@ class InterestTree(InterestModel, Observable):
 class Tree(Observable):
     """
         Competence Progress Tree (recursive)
-        
+
         This class provides an index into a set of k-dimensional points which
         can be used to rapidly look up the nearest neighbors of any point.
-    
+
         Parameters
         ----------
         get_data_x : (N,K) array
@@ -232,49 +232,49 @@ class Tree(Observable):
         max_depth : int
             Maximum depth of the tree
         split_mode : string
-            Mode to split a region: 
-                'random': random value between first and last points, 
-                'median': median of the points in the region on the split dimension, 
-                'middle': middle of the region on the split dimension, 
-                'best_interest_diff': 
+            Mode to split a region:
+                'random': random value between first and last points,
+                'median': median of the points in the region on the split dimension,
+                'middle': middle of the region on the split dimension,
+                'best_interest_diff':
                     value that maximize the difference of progress in the 2 sub-regions
-                    (described in Baranes2012: Active Learning of Inverse Models 
+                    (described in Baranes2012: Active Learning of Inverse Models
                     with Intrinsically Motivated Goal Exploration in Robots)
         progress_win_size : int
             Number of last points taken into account for progress computation (should be < max_points_per_region)
         progress_measure : string
-            How to compute progress: 
+            How to compute progress:
                 'abs_deriv_cov': approach from explauto's discrete progress interest model
-                'abs_deriv': absolute difference between first and last points in the window, 
-                'abs_deriv_smooth', absolute difference between first and last half of the window 
-        sampling_mode : list 
-            How to sample a point in the tree: 
-                dict(multiscale=bool, 
-                    volume=bool, 
-                    mode=greedy'|'random'|'epsilon_greedy'|'softmax', 
-                    param=float)                    
+                'abs_deriv': absolute difference between first and last points in the window,
+                'abs_deriv_smooth', absolute difference between first and last half of the window
+        sampling_mode : list
+            How to sample a point in the tree:
+                dict(multiscale=bool,
+                    volume=bool,
+                    mode=greedy'|'random'|'epsilon_greedy'|'softmax',
+                    param=float)
                 multiscale: if we choose between all the nodes of the tree to sample a goal, leading to a multi-scale resolution
-                            (described in Baranes2012: Active Learning of Inverse Models 
+                            (described in Baranes2012: Active Learning of Inverse Models
                             with Intrinsically Motivated Goal Exploration in Robots)
                 volume: if we weight the progress of nodes with their volume to choose between them
                         (new approach)
                 mode: sampling mode
-                param: a parameter of the sampling mode: eps for eps_greedy, temperature for softmax.                                                 
-        idxs : list 
+                param: a parameter of the sampling mode: eps for eps_greedy, temperature for softmax.
+        idxs : list
             List of indices to start with
         split_dim : int
             Dimension on which the next split will take place
-        
+
         Raises
         ------
         RuntimeError
             The maximum recursion limit can be exceeded for large data
             sets.  If this happens, either increase the value for the `max_points_per_region`
             parameter or increase the recursion limit by::
-    
+
                 >>> import sys
                 >>> sys.setrecursionlimit(10000)
-    
+
 
     """
     def __init__(self,
@@ -343,7 +343,7 @@ class Tree(Observable):
             self.idxs = idxs
         self.n_children = len(self.idxs)
         self.volume = np.prod(self.bounds_x[1,:] - self.bounds_x[0,:])
-        
+
         self.leafnode = True # identifies if self is a Leaf Node
         self.can_sample = True # If there are no free spaces to travel to in the region this is set to false and the leaf is passed over when sampling
         self.progress = 0 # potential learning progress (will select points where this is high)
@@ -358,7 +358,7 @@ class Tree(Observable):
     def get_nodes(self):
         """
         Get the list of all nodes.
-        
+
         """
         # Inline functions here best aligns with original implementation using lambda, and allows for sharing the fold_up function, but there is probably a better way
         def add_lower_and_greater_with_parent(fl, fg):
@@ -380,7 +380,7 @@ class Tree(Observable):
             return fl + fg
 
         def leaf_as_list(leaf):
-                return [leaf]
+            return [leaf]
 
         if only_sampleable:
             return self.fold_up_sampleable(f_inter=add_lower_and_greater, f_leaf=leaf_as_list)
@@ -399,19 +399,19 @@ class Tree(Observable):
     #     """
     #     return self.fold_up(f_inter=lambda n, fl, fg: max(fl + 1, fg + 1), f_leaf=lambda leaf: 0)
     #
-    
+
     def density(self):
         """
         Compute the density of the node.
-        
+
         """
         return self.n_children / self.volume
-    
-    
+
+
     def pt2leaf(self, x):
         """
         Get the leaf which domain contains x.
-        
+
         """
         if self.leafnode:
             return self
@@ -420,7 +420,7 @@ class Tree(Observable):
                 return self.lower.pt2leaf(x)
             else:
                 return self.greater.pt2leaf(x)
-        
+
     def get_safe_coordinates_within_region_bounds(self):
         # Get the coordinates of all the leaf nodes that are safe (object/cliff/edge free) from the  Nav Mem Map
         safe_coordinate_regions = []
@@ -439,7 +439,7 @@ class Tree(Observable):
 
         safe_coordinate_regions_avoiding_collision = []
         dropped_safe_coordinates = []
-         # trim safe coordinates so they don't overlap with the padded unsafe coordinates
+        # trim safe coordinates so they don't overlap with the padded unsafe coordinates
         for safe_coordinate in safe_coordinate_regions:
             safe_region_min = safe_coordinate[0] # x,y coords of region min
             safe_region_max = safe_coordinate[1] # x,y coords of region max
@@ -490,8 +490,8 @@ class Tree(Observable):
                         # check if min/max y match intersect min/max y to see if we only shift left/right
                         if y_intersection_min == safe_region_min[1] and y_intersection_max == safe_region_max[1]:
                             if x_intersection_min == safe_region_min[0]: # to the right of intersect
-                                    # shift x min right
-                                    safe_region_min[0] = safe_region_min[0] + x_intersection_size
+                                # shift x min right
+                                safe_region_min[0] = safe_region_min[0] + x_intersection_size
                             else: # to left of intersect
                                 # only shift x max left
                                 safe_region_max[0] = safe_region_max[0] + x_intersection_size
@@ -620,11 +620,11 @@ class Tree(Observable):
         s = rand_bounds(self.bounds_x).flatten()
 
         return s
-    
+
     def sample_random(self):
         """
         Sample a point in a random leaf.
-        
+
         """
         if self.sampling_mode['volume']:
             # Choose a leaf weighted by volume, randomly
@@ -647,16 +647,16 @@ class Tree(Observable):
                 elif self.greater.can_sample:
                     return self.greater.sample(sampling_mode={'mode':'random'})
 
-        else: 
+        else:
             # Choose a leaf randomly
             return np.random.choice(self.get_leaves(only_sampleable=True)).sample_bounds()
 
-        
+
     def sample_greedy(self):
-        """        
+        """
         Sample a point in the leaf with the max progress.
-        
-        """    
+
+        """
         if self.leafnode:
             return self.sample_bounds()
         else:
@@ -675,8 +675,8 @@ class Tree(Observable):
             elif self.greater.can_sample is False:
                 print("Cannot sample greater child")
                 maxp = lp
-            if self.sampling_mode['multiscale']:                
-                tp = self.progress        
+            if self.sampling_mode['multiscale']:
+                tp = self.progress
                 if tp > maxp:
                     return self.sample_bounds()
             if gp == maxp:
@@ -687,16 +687,16 @@ class Tree(Observable):
                 sampling_mode = copy.deepcopy(self.sampling_mode)
                 sampling_mode['mode'] = 'greedy'
                 return self.lower.sample(sampling_mode=sampling_mode)
-        
-        
+
+
     def sample_epsilon_greedy(self, epsilon=0.1):
         """
         Sample a point in the leaf with the max potential learning progress with probability (1-eps) and a random leaf with probability (eps).
-        
+
         Parameters
         ----------
-        epsilon : float 
-            
+        epsilon : float
+
         """
         if epsilon > np.random.random():
             sampling_mode = copy.deepcopy(self.sampling_mode)  # This was updating the class instance because reference
@@ -707,8 +707,8 @@ class Tree(Observable):
             sampling_mode = copy.deepcopy(self.sampling_mode)
             sampling_mode['mode'] = 'greedy'
             return self.sample(sampling_mode=sampling_mode)
-        
-        
+
+
     def sample_softmax(self, temperature=1.):
         """
         Sample leaves with probabilities progress*volume and a softmax exploration (with a temperature parameter).
@@ -719,8 +719,8 @@ class Tree(Observable):
 
         Parameters
         ----------
-        temperature : float 
-        
+        temperature : float
+
         """
         if self.leafnode:
             return self.sample_bounds() # random sample of bounds
@@ -729,65 +729,65 @@ class Tree(Observable):
                 nodes = self.get_nodes()
             else:
                 nodes = self.get_leaves()
-                
+
             if  self.sampling_mode['volume']:
                 progresses = np.array([node.progress*node.volume for node in nodes]) #by volume
             else:
                 progresses = np.array([node.progress for node in nodes])
-                
+
             progress_max = max(progresses)
             probas = np.exp(progresses / (progress_max*temperature))
             probas = probas / np.sum(probas)
-            
+
             if np.isnan(np.sum(probas)): # if progress_max = 0 or nan value in dataset, eps-greedy sample
                 return self.sample_epsilon_greedy()
             else:
                 node = nodes[np.where(np.random.multinomial(1, probas) == 1)[0][0]]
                 return node.sample_bounds()
-        
-            
+
+
     def sample(self, sampling_mode=None):
         """
         Sample a point in the leaf region with max competence progress (recursive).
-        
+
         Parameters
         ----------
         sampling_mode : dict
             How to sample a point in the tree: {'multiscale':bool, 'mode':string, 'param':float}
-            
+
         """
         if sampling_mode is None:
             sampling_mode = self.sampling_mode
 
         if sampling_mode['mode'] == 'random':
             return self.sample_random()
-                
+
         elif sampling_mode['mode'] == 'greedy':
             return self.sample_greedy()
-            
+
         elif sampling_mode['mode'] == 'epsilon_greedy':
             return self.sample_epsilon_greedy(sampling_mode['param'])
-            
+
         elif sampling_mode['mode'] == 'softmax':
             return self.sample_softmax(sampling_mode['param'])
-            
+
         else:
             raise NotImplementedError(sampling_mode)
-            
-            
+
+
     def progress_all(self):
         """
         Competence progress of the overall tree.
-        
+
         """
         return self.progress_idxs(list(range(np.shape(self.get_data_x())[0] - self.progress_win_size,
-                                        np.shape(self.get_data_x())[0])))
-    
-            
+                                             np.shape(self.get_data_x())[0])))
+
+
     def progress_idxs(self, idxs):
         """
         Competence progress on points of given indexes. (higher competence is better, lower prediction error the better)
-        
+
         """
         if self.progress_measure == 'abs_deriv_cov':
             #  approach from explauto's discrete progress interest model
@@ -796,7 +796,7 @@ class Tree(Observable):
             else:
                 idxs = sorted(idxs)[- self.progress_win_size:]
                 return abs(np.cov(list(zip(list(range(len(idxs))), self.get_data_c()[idxs])), rowvar=0)[0, 1])
-            
+
         elif self.progress_measure == 'abs_deriv':
             # absolute difference between first and last points in the window
             if len(idxs) <= 1:
@@ -816,7 +816,7 @@ class Tree(Observable):
                 comp_beg = np.mean(idxs_competencies[:int(float(n_competencies)/2.)])
                 comp_end = np.mean(idxs_competencies[int(float(n_competencies)/2.):])
                 return np.abs(comp_end - comp_beg)
-            
+
         elif self.progress_measure == 'bounded_smooth':
             if len(idxs) <= 1:
                 return 0
@@ -831,32 +831,32 @@ class Tree(Observable):
 
         else:
             raise NotImplementedError(self.progress_measure)
-        
-        
+
+
     def update_progress(self):
         """
         Update progress of sub-trees (not recursive).
-        
+
         """
         self.progress = self.progress_idxs(self.idxs)
-            
-    
+
+
     def update_max_progress(self):
         """
         Compute progress of tree and max progress of sub-trees (not recursive).
-        
+
         """
         self.update_progress()
         if self.leafnode:
             self.max_leaf_progress = self.progress
         else:
             self.max_leaf_progress = max(self.lower.max_leaf_progress, self.greater.max_leaf_progress)
-            
-        
+
+
     def add(self, idx):
         """
         Add an index to the tree (recursive).
-        
+
         """
         if self.leafnode and self.n_children >= self.max_points_per_region and self.max_depth > 0:
             self.split()
@@ -871,12 +871,12 @@ class Tree(Observable):
         self.update_max_progress()
         self.n_children = self.n_children + 1
         return leaf_point_was_added_to # return leaf on which the point has been added
-    
-    
+
+
     def split(self):
         """
         Split the leaf node.
-        
+
         """
         print("splitting")
         # self.emit("split", f"Splitting: {self.split_mode}") # comment out, was erroring in wip deletion notebook?
@@ -889,17 +889,17 @@ class Tree(Observable):
             split_value = split_min + self.region_deletion_rng.random() * (split_max - split_min)
 
         elif self.split_mode == 'median':
-            # Split on median (which fall on the middle of two points for even max_points_per_region) 
+            # Split on median (which fall on the middle of two points for even max_points_per_region)
             # of node's points on split dimension
             split_dim_data = self.get_data_x()[self.idxs, self.split_dim] # data on split dim
             split_value = np.median(split_dim_data)
-            
+
         elif self.split_mode == 'middle':
             # Split on the middle of the region: might cause empty leaf
             split_dim_data = self.get_data_x()[self.idxs, self.split_dim] # data on split dim
             split_value = (self.bounds_x[0, self.split_dim] + self.bounds_x[1, self.split_dim]) / 2
-            
-        elif self.split_mode == 'best_interest_diff': 
+
+        elif self.split_mode == 'best_interest_diff':
             # See Baranes2012: Active Learning of Inverse Models with Intrinsically Motivated Goal Exploration in Robots
             #   - if strictly more than self.max_points_per_region points: chooses between self.max_points_per_region points random split values
             # the one that maximizes card(lower)*card(greater)* progress difference between the two
@@ -908,7 +908,7 @@ class Tree(Observable):
             split_dim_data = self.get_data_x()[self.idxs, self.split_dim] # data on split dim
             split_min = min(split_dim_data)
             split_max = max(split_dim_data)
-                        
+
             if len(self.idxs) > self.max_points_per_region:
                 m = self.max_points_per_region # Constant that might be tuned: number of random split values to choose between
                 # rand_splits = split_min + np.random.rand(m) * (split_max - split_min)
@@ -917,10 +917,10 @@ class Tree(Observable):
                 for i in range(m):
                     lower_idx = list(np.array(self.idxs)[np.nonzero(split_dim_data <= rand_splits[i])[0]])
                     greater_idx = list(np.array(self.idxs)[np.nonzero(split_dim_data > rand_splits[i])[0]])
-                    splits_fitness[i] = len(lower_idx) * len(greater_idx) * abs(self.progress_idxs(lower_idx) - 
-                                                                               self.progress_idxs(greater_idx))
+                    splits_fitness[i] = len(lower_idx) * len(greater_idx) * abs(self.progress_idxs(lower_idx) -
+                                                                                self.progress_idxs(greater_idx))
                 split_value = rand_splits[np.argmax(splits_fitness)]
-                
+
             else: # len(idxs) is same as max_points_per_region (or lower, but I don't see how we'd get in that state)
 
                 m = self.max_points_per_region - 1
@@ -929,8 +929,8 @@ class Tree(Observable):
                 for i in range(m):
                     lower_idx = list(np.array(self.idxs)[np.nonzero(split_dim_data <= splits[i])[0]])
                     greater_idx = list(np.array(self.idxs)[np.nonzero(split_dim_data > splits[i])[0]])
-                    splits_fitness[i] = len(lower_idx) * len(greater_idx) * abs(self.progress_idxs(lower_idx) - 
-                                                                               self.progress_idxs(greater_idx))
+                    splits_fitness[i] = len(lower_idx) * len(greater_idx) * abs(self.progress_idxs(lower_idx) -
+                                                                                self.progress_idxs(greater_idx))
                 split_value = splits[np.argmax(splits_fitness)]
         elif self.split_mode == 'variance_of_cos_sim':
             # split so variance of cos sim is maximal on either side. This will encourage splitting  "concepts" in space.
@@ -963,7 +963,7 @@ class Tree(Observable):
             raise NotImplementedError
 
         # self.emit("split", f"Split dimension: {self.split_dim}, value: {split_value}") # todo: uncomment - it's angry in test delete nb
-    
+
         lower_idx = list(np.array(self.idxs)[np.nonzero(split_dim_data <= split_value)[0]])
         greater_idx = list(np.array(self.idxs)[np.nonzero(split_dim_data > split_value)[0]])
 
@@ -972,10 +972,10 @@ class Tree(Observable):
 
         # mod split dim+1, num of features(cols) in x. Each iteration will update to next dimension (or in case of 2 dims, just toggle between them)
         split_dim = np.mod(self.split_dim + 1, np.shape(self.get_data_x())[1])
-        
+
         l_bounds_x = np.array(self.bounds_x)
         l_bounds_x[1, self.split_dim] = split_value
-        
+
         g_bounds_x = np.array(self.bounds_x)
         g_bounds_x[0, self.split_dim] = split_value
         self.lower = Tree(self.get_data_x,
@@ -995,7 +995,7 @@ class Tree(Observable):
                           region_deletion_rng=self.region_deletion_rng,
                           max_turn_count=self.max_turn_count,
                           progressive_split_ranges=self.progressive_split_ranges)
-        
+
         self.greater = Tree(self.get_data_x,
                             g_bounds_x,
                             self.get_data_y,
@@ -1022,7 +1022,7 @@ class Tree(Observable):
         cos_sims_variance = 100 if len(cos_sims) == 0 else np.var(cos_sims)
         return cos_sims_variance
 
-    # Adapted from scipy.spatial.kdtree 
+    # Adapted from scipy.spatial.kdtree
     def __query(self, x, k=1, eps=0, p=2, distance_upper_bound=np.inf):
 
         side_distances = np.maximum(0,np.maximum(x-self.bounds_x[1],self.bounds_x[0]-x))
@@ -1104,9 +1104,9 @@ class Tree(Observable):
             return sorted([(-d,i) for (d,i) in neighbors])
         else:
             return sorted([((-d)**(1./p),i) for (d,i) in neighbors])
-        
-        
-    # Adapted from scipy.spatial.kdtree 
+
+
+    # Adapted from scipy.spatial.kdtree
     def nn(self, x, k=1, eps=0, p=2, distance_upper_bound=np.inf):
         """
         Query the tree for nearest neighbors
@@ -1205,12 +1205,12 @@ class Tree(Observable):
                 return dd, ii
             else:
                 raise ValueError("Requested %s nearest neighbors; acceptable numbers are integers greater than or equal to one, or None")
-         
-                
+
+
     def fold_up(self, f_inter, f_leaf):
         """
         Apply recursively the function f_inter from leaves to root, begining with function f_leaf on leaves.
-        
+
         """
         return f_leaf(self) if self.leafnode else f_inter(self.lower.fold_up(f_inter, f_leaf),
                                                           self.greater.fold_up(f_inter, f_leaf))
@@ -1222,17 +1222,17 @@ class Tree(Observable):
 
         """
         return f_leaf(self) if self.leafnode and self.can_sample else f_inter(self.lower.fold_up(f_inter, f_leaf),
-                                                          self.greater.fold_up(f_inter, f_leaf))
+                                                                              self.greater.fold_up(f_inter, f_leaf))
 
 
     def competence_measure(self, target, reached):
         # return competence_exp(target, reached, 0, 10)
         return prediction_error_cos_dist_exp(target, reached)
 
-    def plot(self, ax=None, ax2=None, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=30, plot_dims=[0,1], legend_artists=None):
+    def plot(self, ax=None, ax2=None, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=30, plot_dims=[0,1], legend_artists=None, cmap=None):
         """
         Plot a projection on 2D of the Tree.
-        
+
         Parameters
         ----------
         ax : plt axis
@@ -1242,21 +1242,21 @@ class Tree(Observable):
         grid : bool
             If the leaves' bounds are ploted
         progress_colors : bool
-            If rectangles are filled with colors based on progress 
+            If rectangles are filled with colors based on progress
         progress_max : float
             Max progress on color scale (will be ploted as 1.)
         depth : int
             Max depth of the ploted nodes
         plot_dims : list
             List of the 2 dimensions to project tree on
-        
+
         """
         if ax is not None:
             ax.clear()
             # cat_path = './retico/misc/cat_icon.png'
             # eleph_path = './retico/misc/elephant_icon.png'
             if grid:
-                self.plot_grid(ax, progress_colors, progress_max, depth, plot_dims, legend_artists=legend_artists)
+                self.plot_grid(ax, progress_colors, progress_max, depth, plot_dims, legend_artists=legend_artists, cmap=cmap)
                 if len(plot_dims) == 2: # TODO Catherine: Could we support marking known object locations on the 3d grid?
                     self.add_plot_objs(ax, "grid")
             if scatter and self.get_data_x() is not None:
@@ -1366,8 +1366,6 @@ class Tree(Observable):
                 ax.set_zlabel("Degree of Rotation")
                 ax.scatter(self.get_data_x()[:,0], self.get_data_x()[:,1], self.get_data_x()[:,2], color = 'black')
 
-
-
         ax.set_title(f'Action/Perception Turn Count: {len(self.get_data_x())}', loc='left', pad=30)
 
     def plot_scatter_radians(self, ax, plot_dims=[0,1]):
@@ -1394,7 +1392,7 @@ class Tree(Observable):
         ax.set_rlabel_position(-30)
         ax.set_title(f'Action/Perception Turn Count: {len(self.get_data_x())}', loc='left')
 
-    def plot_grid(self, ax, progress_colors=True, progress_max=1., depth=10, plot_dims=[0,1], category_labels=None, legend_artists=None):
+    def plot_grid(self, ax, progress_colors=True, progress_max=1., depth=10, plot_dims=[0,1], category_labels=None, legend_artists=None, cmap=None):
         debug = False
         if category_labels is None:
             category_labels = []
@@ -1418,6 +1416,10 @@ class Tree(Observable):
                 if progress_colors:
                     prog_min = 0.
                     c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
+                    ax.add_patch(plt.Rectangle(mins, maxs[0] - mins[0], maxs[1] - mins[1], facecolor=c,  edgecolor='white', alpha=0.7))
+                    ax.annotate(len(category_labels), mins, color='#8dd17d', weight='bold', fontsize=15, ha='left', va='baseline')
+                elif cmap is not None:
+                    c = cmap[len(category_labels)]
                     ax.add_patch(plt.Rectangle(mins, maxs[0] - mins[0], maxs[1] - mins[1], facecolor=c,  edgecolor='white', alpha=0.7))
                     ax.annotate(len(category_labels), mins, color='#8dd17d', weight='bold', fontsize=15, ha='left', va='baseline')
                 else:
@@ -1481,10 +1483,14 @@ class Tree(Observable):
                     if debug:
                         print(f"\t\tr2 coordinates: \n{r2_coordinates}")
 
-                    c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
+                    if progress_colors:
+                        c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
+                    elif cmap is not None:
+                        c = cmap[len(category_labels)]
+
                     split = ax.plot_surface(np.concatenate((x1, x2, x1, x2), axis=1), np.concatenate((yy_asc, yy_desc, yy_asc, yy_desc), axis=1), np.concatenate((zz, zz, zz, zz), axis=1), linewidth=2, alpha=.05, edgecolors=c, shade=False, color=c)
                     annotation = annotate3D(ax, s=str(len(category_labels)), xyz=mins, fontsize=10, xytext=(-3,3),
-                               textcoords='offset points', ha='right',va='bottom')
+                                            textcoords='offset points', ha='right',va='bottom')
 
 
                 if axis == 1:
@@ -1538,11 +1544,14 @@ class Tree(Observable):
                         # print(f"r2 stacked: \n{r2_stacked}")
                         print(f"\t\tr2 coordinates: \n{r2_coordinates}")
 
+                    if progress_colors:
+                        c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
+                    elif cmap is not None:
+                        c = cmap[len(category_labels)]
 
-                    c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
                     split = ax.plot_surface(np.concatenate((xx_asc, xx_desc, xx_asc, xx_desc), axis=1), np.concatenate((y1, y2, y1, y2), axis=1), np.concatenate((zz, zz, zz, zz), axis=1), linewidth=2, alpha=.05, edgecolors=c, shade=False, color=c)
                     annotation = annotate3D(ax, s=str(len(category_labels)), xyz=mins, fontsize=10, xytext=(-3,3),
-                           textcoords='offset points', ha='right',va='bottom')
+                                            textcoords='offset points', ha='right',va='bottom')
 
 
                 if axis == 2:
@@ -1593,11 +1602,15 @@ class Tree(Observable):
                     if debug:
                         print(f"r2 coordinates: \n{r2_coordinates}")
 
-                    c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
+
+                    if progress_colors:
+                        c = plt.cm.gnuplot((self.max_leaf_progress - prog_min) / (progress_max - prog_min)) if progress_max > prog_min else plt.cm.gnuplot(0)
+                    elif cmap is not None:
+                        c = cmap[len(category_labels)]
 
                     split = ax.plot_surface(np.concatenate((xx_asc, xx_desc, xx_asc, xx_desc), axis=1), np.concatenate((yy, yy, yy, yy), axis=1), np.concatenate((z1, z2, z1, z2), axis=1), linewidth=2, alpha=.05, edgecolors=c, shade=False, color=c)
                     annotation = annotate3D(ax, s=str(len(category_labels)), xyz=mins, fontsize=10, xytext=(-3,3),
-                               textcoords='offset points', ha='right',va='bottom')
+                                            textcoords='offset points', ha='right',va='bottom')
 
                 if legend_artists is not None:
                     legend_artists[str(len(category_labels))] = [split, annotation]
@@ -1606,9 +1619,9 @@ class Tree(Observable):
             if debug:
                 print("not leaf")
             category_labels.append(len(category_labels))
-            self.lower.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims, category_labels, legend_artists)
+            self.lower.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims, category_labels, legend_artists, cmap)
             category_labels.append(len(category_labels))
-            self.greater.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims, category_labels, legend_artists)
+            self.greater.plot_grid(ax, progress_colors, progress_max, depth - 1, plot_dims, category_labels, legend_artists, cmap)
 
 # foal_plot_obj = PlotObject(image_path='./retico/misc/foal_icon.png', nose_x=-1, nose_y=4.5, tail_x=1.5, tail_y=4.5)
 # goat_plot_obj = PlotObject(image_path='./retico/misc/goat_icon.png', nose_x=2.3, nose_y=-3, tail_x=0.5, tail_y=-4)
@@ -1637,81 +1650,81 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                        'split_mode': 'best_interest_diff',
                                                        'competence_measure': competence_exp,
                                                        'progress_win_size': 50,
-                                                       'progress_measure': 'abs_deriv_smooth',                                                     
-                                                       'sampling_mode': {'mode':'softmax', 
+                                                       'progress_measure': 'abs_deriv_smooth',
+                                                       'sampling_mode': {'mode':'softmax',
                                                                          'param':0.2,
                                                                          'multiscale':False,
                                                                          'volume':True}},
                                            'cozmo': {'max_points_per_region': 30, # twenty seems good so far
-                                                       'max_depth': 50,
-                                                       'split_mode': 'variance_of_cos_sim',
-                                                       'competence_measure': prediction_error_cos_dist_exp,
-                                                       'progress_win_size': 10, # TODO try 15?
-                                                       'progress_measure': 'steep_reverse_sigmoid_time_weighted',
-                                                       'sampling_mode': {'mode':'epsilon_greedy',
-                                                                         'param':0.1,
-                                                                         'multiscale':False,
-                                                                         'volume':True},
-                                                     },
-                                           'cozmo_binary_obj_detection': {'max_points_per_region': 30, # twenty seems good so far
-                                                     'max_depth': 50,
-                                                     'split_mode': 'best_interest_diff',
-                                                     'competence_measure': competence_exp,
-                                                     'progress_win_size': 10, # TODO try 15?
-                                                     'progress_measure': 'abs_deriv_smooth',
-                                                     'sampling_mode': {'mode':'epsilon_greedy',
-                                                                       'param':0.1,
-                                                                       'multiscale':False,
-                                                                       'volume':True},
-                                                    'plot_objects': [cat_blob_plot_obj, elephant_blob_plot_obj],
-                                                    'region_deletion':False},
-                                           'cozmo_clip': {'max_points_per_region': 30, # twenty seems good so far
-                                                    'max_depth': 50,
-                                                    'split_mode': 'best_interest_diff',
-                                                    'competence_measure': competence_cos_dist_exp,
-                                                    'progress_win_size': 10, # TODO try 15?
-                                                    'progress_measure': 'abs_deriv_smooth',
-                                                    'sampling_mode': {'mode':'epsilon_greedy',
-                                                                      'param':0.1,
-                                                                      'multiscale':False,
-                                                                      'volume':True},
-                                                    'plot_objects': [cat_plot_obj, elephant_plot_obj],
-                                                    'region_deletion':False},
-                                           'cozmo_clip_cos_sim_split': {'max_points_per_region': 10, #30 # twenty seems good so far
                                                      'max_depth': 50,
                                                      'split_mode': 'variance_of_cos_sim',
-                                                     'competence_measure': competence_cos_dist_exp,
-                                                     'progress_win_size': 5, #10, # TODO try 15?
-                                                     'progress_measure': 'abs_deriv_smooth',
-                                                     'sampling_mode': {'mode':'epsilon_greedy',
-                                                                       'param':0.1,
-                                                                       'multiscale':False,
-                                                                       'volume':True},
-                                                    'plot_objects': [cat_plot_obj, elephant_plot_obj],
-                                                    'region_deletion':False},
-                                           'cozmo_clip_cos_sim_split_and_learning_prog': {'max_points_per_region': 5, #5 for developing! use 30 normally #30, # twenty seems good so far
-                                                     'max_depth': 50,
-                                                     'split_mode': 'variance_of_cos_sim',
-                                                     'competence_measure': competence_cos_dist_exp,
+                                                     'competence_measure': prediction_error_cos_dist_exp,
                                                      'progress_win_size': 10, # TODO try 15?
                                                      'progress_measure': 'steep_reverse_sigmoid_time_weighted',
                                                      'sampling_mode': {'mode':'epsilon_greedy',
                                                                        'param':0.1,
                                                                        'multiscale':False,
                                                                        'volume':True},
-                                                    'plot_objects': [cat_plot_obj, elephant_plot_obj],
-                                                    'region_deletion':False},
+                                                     },
+                                           'cozmo_binary_obj_detection': {'max_points_per_region': 30, # twenty seems good so far
+                                                                          'max_depth': 50,
+                                                                          'split_mode': 'best_interest_diff',
+                                                                          'competence_measure': competence_exp,
+                                                                          'progress_win_size': 5, # TODO try 15?
+                                                                          'progress_measure': 'abs_deriv_smooth',
+                                                                          'sampling_mode': {'mode':'epsilon_greedy',
+                                                                                            'param':0.1,
+                                                                                            'multiscale':False,
+                                                                                            'volume':True},
+                                                                          'plot_objects': [cat_blob_plot_obj, elephant_blob_plot_obj],
+                                                                          'region_deletion':False},
+                                           'cozmo_clip': {'max_points_per_region': 30, # twenty seems good so far
+                                                          'max_depth': 50,
+                                                          'split_mode': 'best_interest_diff',
+                                                          'competence_measure': competence_cos_dist_exp,
+                                                          'progress_win_size': 10, # TODO try 15?
+                                                          'progress_measure': 'abs_deriv_smooth',
+                                                          'sampling_mode': {'mode':'epsilon_greedy',
+                                                                            'param':0.1,
+                                                                            'multiscale':False,
+                                                                            'volume':True},
+                                                          'plot_objects': [cat_plot_obj, elephant_plot_obj],
+                                                          'region_deletion':False},
+                                           'cozmo_clip_cos_sim_split': {'max_points_per_region': 10, #30 # twenty seems good so far
+                                                                        'max_depth': 50,
+                                                                        'split_mode': 'variance_of_cos_sim',
+                                                                        'competence_measure': competence_cos_dist_exp,
+                                                                        'progress_win_size': 5, #10, # TODO try 15?
+                                                                        'progress_measure': 'abs_deriv_smooth',
+                                                                        'sampling_mode': {'mode':'epsilon_greedy',
+                                                                                          'param':0.1,
+                                                                                          'multiscale':False,
+                                                                                          'volume':True},
+                                                                        'plot_objects': [cat_plot_obj, elephant_plot_obj],
+                                                                        'region_deletion':False},
+                                           'cozmo_clip_cos_sim_split_and_learning_prog': {'max_points_per_region': 5, #5 for developing! use 30 normally #30, # twenty seems good so far
+                                                                                          'max_depth': 50,
+                                                                                          'split_mode': 'variance_of_cos_sim',
+                                                                                          'competence_measure': competence_cos_dist_exp,
+                                                                                          'progress_win_size': 10, # TODO try 15?
+                                                                                          'progress_measure': 'steep_reverse_sigmoid_time_weighted',
+                                                                                          'sampling_mode': {'mode':'epsilon_greedy',
+                                                                                                            'param':0.1,
+                                                                                                            'multiscale':False,
+                                                                                                            'volume':True},
+                                                                                          'plot_objects': [cat_plot_obj, elephant_plot_obj],
+                                                                                          'region_deletion':False},
                                            'cozmo_clip_cos_sim_split_random_sampling': {'max_points_per_region': 15, #30 # twenty seems good so far
-                                                    'max_depth': 50,
-                                                    'split_mode': 'variance_of_cos_sim',
-                                                    'competence_measure': competence_cos_dist_exp,
-                                                    'progress_win_size': 5, #10, # TODO try 15?
-                                                    'progress_measure': 'abs_deriv_smooth',
-                                                    'sampling_mode': {'mode':'random',
-                                                                      'multiscale':False,
-                                                                      'volume':False}, # Do not even weight random by volume, do true random
-                                                    'plot_objects': [cat_plot_obj, elephant_plot_obj],
-                                                    'region_deletion':False},
+                                                                                        'max_depth': 50,
+                                                                                        'split_mode': 'variance_of_cos_sim',
+                                                                                        'competence_measure': competence_cos_dist_exp,
+                                                                                        'progress_win_size': 5, #10, # TODO try 15?
+                                                                                        'progress_measure': 'abs_deriv_smooth',
+                                                                                        'sampling_mode': {'mode':'random',
+                                                                                                          'multiscale':False,
+                                                                                                          'volume':False}, # Do not even weight random by volume, do true random
+                                                                                        'plot_objects': [cat_plot_obj, elephant_plot_obj],
+                                                                                        'region_deletion':False},
                                            'cozmo_clip_cos_sim_split_with_region_deletion': {'max_points_per_region': 10, #30 # twenty seems good so far
                                                     'max_depth': 50,
                                                     'split_mode': 'variance_of_cos_sim',
