@@ -1,8 +1,9 @@
 import logging
+import threading
 from datetime import datetime
 
 import numpy as np
-
+import pickle
 
 from ..utils.config import make_configuration
 from ..utils.observer import Observable
@@ -32,6 +33,8 @@ class ReticoAgent(Observable):
         self.save_data = save_data
         self.experiment_name = experiment_name
         self.rand_seed = rand_seed
+        self.file_save_lock = threading.Lock()
+
 
     @classmethod
     def from_classes(cls,
@@ -137,7 +140,7 @@ class ReticoAgent(Observable):
 
         :returns: the generated movement
 
-        .. note:: This correspond to motor babbling if expl_dims=self.conf.m_dims and inf_dims=self.conf.s_dims and to  goal babbling if expl_dims=self.conf.s_dims and inf_dims=self.conf.m_dims.
+        .. note:: This corresponds to motor babbling if expl_dims=self.conf.m_dims and inf_dims=self.conf.s_dims and to  goal babbling if expl_dims=self.conf.s_dims and inf_dims=self.conf.m_dims.
         """
         if context_ms is None:
             if manual_choice is not None:
@@ -185,8 +188,15 @@ class ReticoAgent(Observable):
         if context is None:                
             self.sensorimotor_model.update(self.m, s)
             self.interest_model.update(np.hstack((self.m, self.s)), np.hstack((self.m, s)), flow_uuid=flow_uuid, nav_memory_map=nav_memory_map)
-            if self.save_data and self.n_perceived > 0 and self.n_perceived % 5 == 0:  # Every 5 perceived
-                self.save(f"./IAC_output_data/{self.execution_date_timestamp}/agent_{self.execution_uuid}.pickle")
+            # if self.save_data and self.n_perceived > 0 and self.n_perceived % 5 == 0:  # Every 5 perceived
+            if self.save_data and self.n_perceived > 0:  # Every perceived
+                pickle_thread = threading.Thread(
+                    target=self.save,
+                    args=(f"./IAC_output_data/{self.execution_date_timestamp}/agent_{self.execution_uuid}.pickle"),
+                    name="PickleThread"
+                )
+                pickle_thread.daemon = True
+                pickle_thread.start()
         else:
             if self.context_mode["mode"] == 'mdmsds':  
                 m = self.m[:len(self.m)//2]
@@ -204,11 +214,22 @@ class ReticoAgent(Observable):
                 
         self.n_perceived += 1
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state['file_save_lock']
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.file_save_lock = threading.Lock()
+
     def save(self, filename, mode='pickle'):
         self.emit(f'[{self.execution_uuid}] {datetime.now().strftime("%H:%M:%S")}', f'Saving {filename}')
-        if mode == 'pickle':
-            import pickle
-            with open(filename, 'wb') as f:
-                pickle.dump(self, f)
-        else:
-            raise NotImplementedError('{} is not implemented'.format(mode))
+        # Acquire the lock before file operations
+        # Lock is automatically released when exiting the 'with' block
+        with self.file_save_lock:
+            if mode == 'pickle':
+                with open(filename, 'wb') as f:
+                    pickle.dump(self, f)
+            else:
+                raise NotImplementedError('{} is not implemented'.format(mode))
