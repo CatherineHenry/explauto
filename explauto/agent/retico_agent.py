@@ -192,7 +192,7 @@ class ReticoAgent(Observable):
             if self.save_data and self.n_perceived > 0:  # Every perceived
                 pickle_thread = threading.Thread(
                     target=self.save,
-                    args=(f"./IAC_output_data/{self.execution_date_timestamp}/agent_{self.execution_uuid}.pickle"),
+                    args=([f"./IAC_output_data/{self.execution_date_timestamp}/agent_{self.execution_uuid}.pickle"]),
                     name="PickleThread"
                 )
                 pickle_thread.daemon = True
@@ -231,5 +231,6 @@ class ReticoAgent(Observable):
             if mode == 'pickle':
                 with open(filename, 'wb') as f:
                     pickle.dump(self, f)
+                self.emit(f'[{self.execution_uuid}] {datetime.now().strftime("%H:%M:%S")}', f'Saved {filename}')
             else:
                 raise NotImplementedError('{} is not implemented'.format(mode))
