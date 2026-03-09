@@ -936,28 +936,40 @@ class Tree(Observable):
             # split so variance of cos sim is maximal on either side. This will encourage splitting  "concepts" in space.
             # (cos sim of each half should be 1)
             split_dim_data = self.get_data_x()[self.idxs, self.split_dim] # data on split dim
-            split_min = min(split_dim_data)
-            split_max = max(split_dim_data)
-            m = (len(split_dim_data) - 1)
-            print(f"Trying out {m} splits") # need to move from max points per region to the region # because of the reflection re-splits
+            #split_min = min(split_dim_data)
+            #split_max = max(split_dim_data)
+            #m = (len(split_dim_data) - 1)
             # m = self.max_points_per_region - 1  # Constant that might be tuned: number of random split values to choose between
             # rand_splits = split_min + np.random.rand(m) * (split_max - split_min) # array of random vals above split min
+
             splits = (np.sort(split_dim_data)[0:-1] + np.sort(split_dim_data)[1:]) / 2
-            splits_fitness = np.zeros(m)
-            for i in range(m):
+            number_of_splits = len(splits)
+            # need to move from max points per region to the region # because of the reflection re-splits
+            print(f"Trying out {number_of_splits} splits")
+            splits_fitness = np.zeros(number_of_splits)
+            for i in range(number_of_splits):
+                # print(f"Split {i}/{number_of_splits}")
                 lower_idx = list(np.array(self.idxs)[np.nonzero(split_dim_data <= splits[i])[0]])
                 greater_idx = list(np.array(self.idxs)[np.nonzero(split_dim_data > splits[i])[0]])
                 lower_idx_sensory = self.get_data_y()[lower_idx]
                 greater_idx_sensory = self.get_data_y()[greater_idx]
+                if len(lower_idx_sensory) < 3 or len(greater_idx_sensory) < 3:
+                    # print(f"Skipping split at idx {i} because there are not enough data points in one of the potential regions")
+                    continue
                 # calc cos sim of all sensori in lower index
                 # TODO: double check this func is working how I want
                 lower_cos_sims_variance = self.calc_tree_variance_of_cos_sims(lower_idx_sensory)
+                # print(f"\tLower cos_sim_variances: {lower_cos_sims_variance}")
                 greater_cos_sims_variance = self.calc_tree_variance_of_cos_sims(greater_idx_sensory)
+                # print(f"\tGreater cos_sim_variances: {greater_cos_sims_variance}")
                 # splits_fitness[i] = len(lower_idx) * len(greater_idx) * abs(lower_cos_sims_variance -
                 #                                                             greater_cos_sims_variance)
 
-                splits_fitness[i] = len(lower_idx) * len(greater_idx) * (1 / (lower_cos_sims_variance + greater_cos_sims_variance))  # penalize large variance by dividing by sum. Multiply by len of each list to maximize more even splits
+                # splits_fitness[i] = len(lower_idx) * len(greater_idx) * (1 / (lower_cos_sims_variance + greater_cos_sims_variance))  # penalize large variance by dividing by sum. Multiply by len of each list to maximize more even splits
+                splits_fitness[i] = (1 / (lower_cos_sims_variance + greater_cos_sims_variance))  # penalize large variance by dividing by sum. Multiply by len of each list to maximize more even splits
+            print(f"Splits fitness: {splits_fitness}")
             split_value = splits[np.argmax(splits_fitness)]
+            print(f"Using idx {np.argmax(splits_fitness)} resulting in split value {split_value}")
 
         else:
             raise NotImplementedError
@@ -1019,7 +1031,11 @@ class Tree(Observable):
         cos_sims = []
         for combo_idx_a, combo_idx_b in sensory_combinations_idxs:
             cos_sims.append(cosine_similarity([tree_sensory[combo_idx_a]], [tree_sensory[combo_idx_b]]).flatten()[0])
-        cos_sims_variance = 100 if len(cos_sims) == 0 else np.var(cos_sims)
+        if len(cos_sims) <= 1:
+            print("Should not be evaluating splits with fewer than 3 data points")
+            return 0.001 # make it incredibly unlikely the split is selected
+        else:
+            cos_sims_variance = np.var(cos_sims) # if there is only one value variance is not very meaningful
         return cos_sims_variance
 
     # Adapted from scipy.spatial.kdtree
@@ -1748,7 +1764,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                           'volume':True},
                                                                         'plot_objects': [cat_plot_obj, elephant_plot_obj],
                                                                         'region_deletion':True,
-                                                                        'progressive_split_ranges': {'max_ppr': (3, 10), 'prog_win': (2, 10)},
+                                                                        'progressive_split_ranges': {'max_ppr': (7, 15), 'prog_win': (7, 15)},
                                                                                           },
                                            })}
 
