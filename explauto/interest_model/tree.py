@@ -177,10 +177,10 @@ class InterestTree(InterestModel, Observable):
         else:
             self.data_x = np.append(self.data_x, np.array([xy[self.expl_dims]]), axis=0)
         if self.competence_measure is prediction_error_cos_dist_exp:
-            cos_sim, cos_dist, competence = self.competence_measure(xy, ms)
+            cos_sim, cos_dist, competence = self.competence_measure(xy, ms, self.bounds)
             self.emit(f"[{flow_uuid}] competence", f"[cos sim: {cos_sim}, cos dist: {cos_dist}] bounded cos distance between target and reached: {competence}")
         elif self.competence_measure is competence_exp or self.competence_measure is competence_cos_dist_exp:
-            competence = self.competence_measure(xy, ms)
+            competence = self.competence_measure(xy, ms, self.bounds)
             self.emit(f"[{flow_uuid}] competence", f"competence {competence}")
         if self.data_c is None:
             self.data_c = np.array([competence]) # Either prediction error or competence error

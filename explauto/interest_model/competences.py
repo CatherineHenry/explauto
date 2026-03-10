@@ -13,30 +13,38 @@ def competence_exp(target, reached, dist_min=0., dist_max=1., power=1.):
     return np.exp(power * comp_dist)
 
 
-def prediction_error_cos_dist_exp(target, reached):
+def prediction_error_cos_dist_exp(target, reached, bounds):
     # https://www.desmos.com/calculator/ljgnhhfsbk
     # (1-e^-x) is upper bound at 1, and the value remains 0 at 0, adding a value before the e can shift left (if 0<b<1) and shift right (if 1<b) given (1-be^-x).
     # And the rate at which the value approaches 1 can be increased by adding a multiplier to x
 
     # TODO: do this normalization  better
     # normalize the angle (possible vals -180 and 180)
-    target[0] = (target[0] - -180)/(180 - -180)
-    reached[0] = (reached[0] - -180)/(180 - -180)
+    bounds_mins = bounds[0]
+    bounds_maxs = bounds[1]
+    # normalize movement along Z (rotation) (should be -180 to 180)
+    target[2] = (target[2] - bounds_mins[2])/(bounds_maxs[2] - bounds_mins[2])
+    reached[2] = (reached[2] - bounds_mins[2])/(bounds_maxs[2] - bounds_mins[2])
 
-    # normalize the linear movement (possible vals -80 and 80)
-    target[1] = (target[1] - -80)/(80 - -80)
-    reached[1] = (reached[1] - -80)/(80 - -80)
+    # normalize the linear movement along X (for example, possible vals could look like -80 and 80)
+    target[0] = (target[0] - bounds_mins[0])/(bounds_maxs[0] - bounds_mins[0])
+    reached[0] = (reached[0] - bounds_mins[0])/(bounds_maxs[0] - bounds_mins[0])
 
+    # normalize the linear movement along Y (for example, possible vals could look like -80 and 80)
+    target[1] = (target[1] - bounds_mins[1])/(bounds_maxs[1] - bounds_mins[1])
+    reached[1] = (reached[1] - bounds_mins[1])/(bounds_maxs[1] - bounds_mins[1])
 
+    # expecting values between -1 and 1. 1 being equivalent, 0 being orthogonal, and -1 being opposite
     cos_sim = cosine_similarity([target], [reached]).flatten()[0]
-    cos_dist = 1 - cos_sim  # expecting values between 0 and 2. 0 being equivalent, 1 being orthogonal, and 2 being opposite
+    # expecting values between 0 and 2. 0 being equivalent, 1 being orthogonal, and 2 being opposite
+    cos_dist = 1 - cos_sim
     o = 2 # setting o to 2 forces a cos_dist of 2 to the highest possible error of 1
     bounded_cos = 1 - np.exp(-o * cos_dist)
     return cos_sim, cos_dist, bounded_cos
 
 
-def competence_cos_dist_exp(target, reached):
-    prediction_error = prediction_error_cos_dist_exp(target, reached)
+def competence_cos_dist_exp(target, reached, bounds):
+    prediction_error = prediction_error_cos_dist_exp(target, reached, bounds)
     return 1 - prediction_error[2]
 
 
