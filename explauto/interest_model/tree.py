@@ -325,16 +325,16 @@ class Tree(Observable):
             max_ppr_min, max_ppr_max = max_points_per_region_ranges
             # prior_max_turn_count + max_turn_count to take into account any prior runs
             if prior_max_turn_count > 0:
-                progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, prior_max_turn_count, endpoint=True, dtype=int)
-                max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, prior_max_turn_count, endpoint=True, dtype=int)
-                progress_win_size_distribution = np.concatenate([progress_win_size_distribution,([prog_win_max] * max_turn_count)])
-                max_points_per_region_distribution =np.concatenate([max_points_per_region_distribution,([max_ppr_max] * max_turn_count)])
+                progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, prior_max_turn_count+1, endpoint=True, dtype=int)
+                max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, prior_max_turn_count+1, endpoint=True, dtype=int)
+                progress_win_size_distribution = np.concatenate([progress_win_size_distribution,([prog_win_max] * (max_turn_count+1))])
+                max_points_per_region_distribution =np.concatenate([max_points_per_region_distribution,([max_ppr_max] * (max_turn_count+1))])
                 print(f"Prior turn count is > 0, using a modified distribution")
                 print(f"max_points_per_region_distribution: {max_points_per_region_distribution}")
                 print(f"progress_win_size_distribution: {progress_win_size_distribution}")
             else:
-                progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, max_turn_count, endpoint=True, dtype=int)
-                max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, max_turn_count, endpoint=True, dtype=int)
+                progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, max_turn_count+1, endpoint=True, dtype=int)
+                max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, max_turn_count+1, endpoint=True, dtype=int)
                 print(f"No prior turn count.")
                 print(f"max_points_per_region_distribution: {max_points_per_region_distribution}")
                 print(f"progress_win_size_distribution: {progress_win_size_distribution}")
