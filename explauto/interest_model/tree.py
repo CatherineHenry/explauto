@@ -1793,7 +1793,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                             'progress_measure': 'abs_deriv_smooth',
                                                                                             'sampling_mode': {'mode':'random',
                                                                                                               'multiscale':False,
-                                                                                                              'volume':True},
+                                                                                                              'volume':False},
                                                                                             'plot_objects': [cat_plot_obj, elephant_plot_obj],
                                                                                             'region_deletion':True,
                                                                                             'progressive_split_ranges': {'max_ppr': (7, 15), 'prog_win': (7, 15)},
