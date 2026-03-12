@@ -1766,7 +1766,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                             'competence_measure': competence_cos_dist_exp,
                                                                                             'progress_win_size': 10, #10, # TODO try 15?
                                                                                             'progress_measure': 'abs_deriv_smooth',
-                                                                                            'sampling_mode': {'mode':'random',
+                                                                                            'sampling_mode': {'mode':'epsilon_greedy',
                                                                                                               'multiscale':False,
                                                                                                               'volume':True}, # Do not even weight random by volume, do true random
                                                                                             'plot_objects': [cat_plot_obj, elephant_plot_obj],
