@@ -1,14 +1,11 @@
-import math
 import os
 from itertools import combinations
 from math import cos, sin, radians
 
-from typing import List
 
 from sklearn.metrics.pairwise import cosine_similarity
 import copy
 
-import time
 import numpy as np
 import random
 
@@ -22,15 +19,11 @@ from matplotlib.patches import Polygon, Wedge
 from scipy.spatial.kdtree import minkowski_distance_p
 
 from ..utils.annotations3d import annotate3D
-from ..utils.plot_object import PlotObject
 from ..utils.utils import rand_bounds
-from ..utils.config import make_configuration
 from .interest_model import InterestModel
 from .competences import competence_exp, prediction_error_cos_dist_exp, competence_cos_dist_exp
 from ..utils.observer import Observable
 from ..utils.plot_object import PlotObject
-
-from cozmo.nav_memory_map import NodeContentTypes
 
 class InterestTree(InterestModel, Observable):
     """
@@ -93,7 +86,7 @@ class InterestTree(InterestModel, Observable):
                          plot_objects=plot_objects,
                          region_deletion_rng=self.region_deletion_rng,
                          progressive_split_ranges=progressive_split_ranges,
-                         max_turn_count=self.max_turn_count,
+                         get_max_turn_count=self.get_max_turn_count,
                          get_prior_max_turn_count=self.get_prior_max_turn_count)
 
         InterestModel.__init__(self, expl_dims)
@@ -107,6 +100,9 @@ class InterestTree(InterestModel, Observable):
 
     def get_data_c(self):
         return self.data_c
+
+    def get_max_turn_count(self):
+        return self.max_turn_count
 
     def get_prior_max_turn_count(self):
         return self.prior_max_turn_count
@@ -296,12 +292,12 @@ class Tree(Observable):
                  progress_measure,
                  sampling_mode,
                  get_prior_max_turn_count,
+                 get_max_turn_count,
                  idxs=None,
                  split_dim=0,
                  plot_objects=None,
                  region_deletion_rng=None,
                  progressive_split_ranges=None,
-                 max_turn_count=0,
                  ):
 
         self.region_deletion_rng = region_deletion_rng
@@ -314,7 +310,7 @@ class Tree(Observable):
         self.max_depth = max_depth
         self.split_mode = split_mode
         self.progressive_split_ranges = progressive_split_ranges
-        self.max_turn_count = max_turn_count
+        self.get_max_turn_count = get_max_turn_count
         self.get_prior_max_turn_count = get_prior_max_turn_count
         if progressive_split_ranges:
             # Need this to update so that when we delete a region it uses whatever the latest progressive splits value is
@@ -327,6 +323,7 @@ class Tree(Observable):
             prog_win_min, prog_win_max = progress_win_size_ranges
             max_ppr_min, max_ppr_max = max_points_per_region_ranges
             prior_max_turn_count = self.get_prior_max_turn_count()
+            max_turn_count = self.get_max_turn_count()
             # prior_max_turn_count + max_turn_count to take into account any prior runs
             if prior_max_turn_count > 0:
                 progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, prior_max_turn_count+1, endpoint=True, dtype=int)
@@ -1025,7 +1022,7 @@ class Tree(Observable):
                           idxs = lower_idx,
                           split_dim = split_dim,
                           region_deletion_rng=self.region_deletion_rng,
-                          max_turn_count=self.max_turn_count,
+                          get_max_turn_count=self.get_max_turn_count,
                           get_prior_max_turn_count=self.get_prior_max_turn_count,
                           progressive_split_ranges=self.progressive_split_ranges)
 
@@ -1044,7 +1041,7 @@ class Tree(Observable):
                             idxs = greater_idx,
                             split_dim = split_dim,
                             region_deletion_rng=self.region_deletion_rng,
-                            max_turn_count=self.max_turn_count,
+                            get_max_turn_count=self.get_max_turn_count,
                             get_prior_max_turn_count=self.get_prior_max_turn_count,
                             progressive_split_ranges=self.progressive_split_ranges)
 
