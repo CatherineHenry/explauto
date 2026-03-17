@@ -41,7 +41,7 @@ class InterestTree(InterestModel, Observable):
                  sampling_mode,
                  plot_objects=None,
                  rand_seed=None,
-                 max_turn_count=0,
+                 max_turn_counts=None,
                  region_deletion=False,
                  progressive_split_ranges=None):
 
@@ -68,8 +68,9 @@ class InterestTree(InterestModel, Observable):
         self.data_nav_memory_map = None # list of navigation memory maps
         self.data_flow_uuid = None # list of flow ids
         self.region_deletion = region_deletion
-        self.max_turn_count = max_turn_count # this will be overridden when a prior execution is loaded
-        self.prior_max_turn_count = 0 # This will be set manually when a prior execution is loaded
+        self.execution_iteration = 0
+        self.max_turn_counts = max_turn_counts
+        self.progressive_split_ranges = progressive_split_ranges
         self.tree = Tree(self.get_data_x,
                          np.array(self.bounds, dtype=float),
                          self.get_data_y,
@@ -85,9 +86,9 @@ class InterestTree(InterestModel, Observable):
                          idxs=[],
                          plot_objects=plot_objects,
                          region_deletion_rng=self.region_deletion_rng,
-                         progressive_split_ranges=progressive_split_ranges,
-                         get_max_turn_count=self.get_max_turn_count,
-                         get_prior_max_turn_count=self.get_prior_max_turn_count)
+                         progressive_split_ranges=self.progressive_split_ranges,
+                         get_execution_iteration=self.get_execution_iteration,
+                         max_turn_counts=self.max_turn_counts)
 
         InterestModel.__init__(self, expl_dims)
         Observable.__init__(self)
@@ -101,11 +102,8 @@ class InterestTree(InterestModel, Observable):
     def get_data_c(self):
         return self.data_c
 
-    def get_max_turn_count(self):
-        return self.max_turn_count
-
-    def get_prior_max_turn_count(self):
-        return self.prior_max_turn_count
+    def get_execution_iteration(self):
+        return self.execution_iteration
 
     def get_data_flow_uuid(self):
         return self.data_flow_uuid
@@ -291,13 +289,13 @@ class Tree(Observable):
                  progress_win_size,
                  progress_measure,
                  sampling_mode,
-                 get_prior_max_turn_count,
-                 get_max_turn_count,
+                 get_execution_iteration,
                  idxs=None,
                  split_dim=0,
                  plot_objects=None,
                  region_deletion_rng=None,
                  progressive_split_ranges=None,
+                 max_turn_counts=None,
                  ):
 
         self.region_deletion_rng = region_deletion_rng
@@ -310,8 +308,8 @@ class Tree(Observable):
         self.max_depth = max_depth
         self.split_mode = split_mode
         self.progressive_split_ranges = progressive_split_ranges
-        self.get_max_turn_count = get_max_turn_count
-        self.get_prior_max_turn_count = get_prior_max_turn_count
+        self.get_execution_iteration = get_execution_iteration
+        self.max_turn_counts = max_turn_counts
         if progressive_split_ranges:
             # Need this to update so that when we delete a region it uses whatever the latest progressive splits value is
             # Accomplish this by dynamically calculating based on the number of 'x' values (actions) w.r.t the max # actions we will be taking
@@ -320,25 +318,26 @@ class Tree(Observable):
             num_reached_sensory_effects = len(self.get_data_y()) if self.get_data_y() is not None else 0
             progress_win_size_ranges = progressive_split_ranges['prog_win']
             max_points_per_region_ranges = progressive_split_ranges['max_ppr']
-            prog_win_min, prog_win_max = progress_win_size_ranges
-            max_ppr_min, max_ppr_max = max_points_per_region_ranges
-            prior_max_turn_count = self.get_prior_max_turn_count()
-            max_turn_count = self.get_max_turn_count()
-            # prior_max_turn_count + max_turn_count to take into account any prior runs
-            if prior_max_turn_count > 0:
-                progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, prior_max_turn_count+1, endpoint=True, dtype=int)
-                max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, prior_max_turn_count+1, endpoint=True, dtype=int)
-                progress_win_size_distribution = np.concatenate([progress_win_size_distribution,([prog_win_max] * (max_turn_count+1))])
-                max_points_per_region_distribution =np.concatenate([max_points_per_region_distribution,([max_ppr_max] * (max_turn_count+1))])
-                print(f"Prior turn count is > 0, using a modified distribution")
-                print(f"max_points_per_region_distribution: {max_points_per_region_distribution}")
-                print(f"progress_win_size_distribution: {progress_win_size_distribution}")
-            else:
-                progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, max_turn_count+1, endpoint=True, dtype=int)
-                max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, max_turn_count+1, endpoint=True, dtype=int)
-                print(f"No prior turn count.")
-                print(f"max_points_per_region_distribution: {max_points_per_region_distribution}")
-                print(f"progress_win_size_distribution: {progress_win_size_distribution}")
+
+            execution_iteration = self.get_execution_iteration()
+            # There will always be at least 1 configuration for the ranges
+            prog_win_min, prog_win_max = progress_win_size_ranges[0]
+            max_ppr_min, max_ppr_max = max_points_per_region_ranges[0]
+            max_turn_count = max_turn_counts[0]
+            progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, max_turn_count+1, endpoint=True, dtype=int)
+            max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, max_turn_count+1, endpoint=True, dtype=int)
+            for i in range(1, execution_iteration+1): # for all prior iterations,
+                print(f"Prior iterations detected, using a modified distribution. If # iterations are greater than predefined configs, will use last value.")
+                prog_win_min, prog_win_max = progress_win_size_ranges[i] if i < len(progress_win_size_ranges) else progress_win_size_ranges[-1]
+                max_ppr_min, max_ppr_max = max_points_per_region_ranges[i] if i < len(max_points_per_region_ranges) else max_points_per_region_ranges[-1]
+                max_turn_count = max_turn_counts[i] if i < len(max_turn_counts) else max_turn_counts[-1]
+                iter_progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, max_turn_count+1, endpoint=True, dtype=int)
+                iter_max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, max_turn_count+1, endpoint=True, dtype=int)
+                progress_win_size_distribution = np.concatenate([progress_win_size_distribution, iter_progress_win_size_distribution])
+                max_points_per_region_distribution =np.concatenate([max_points_per_region_distribution,iter_max_points_per_region_distribution])
+            print(f"max_points_per_region_distribution: {max_points_per_region_distribution}")
+            print(f"progress_win_size_distribution: {progress_win_size_distribution}")
+
             self.max_points_per_region = max_points_per_region_distribution[num_reached_sensory_effects]
             self.progress_win_size = progress_win_size_distribution[num_reached_sensory_effects]
             print(f"Using max_points_per_region {self.max_points_per_region} with progress_win_size {self.progress_win_size}")
@@ -1022,9 +1021,9 @@ class Tree(Observable):
                           idxs = lower_idx,
                           split_dim = split_dim,
                           region_deletion_rng=self.region_deletion_rng,
-                          get_max_turn_count=self.get_max_turn_count,
-                          get_prior_max_turn_count=self.get_prior_max_turn_count,
-                          progressive_split_ranges=self.progressive_split_ranges)
+                          progressive_split_ranges=self.progressive_split_ranges,
+                          max_turn_counts=self.max_turn_counts,
+                          get_execution_iteration=self.get_execution_iteration)
 
         self.greater = Tree(self.get_data_x,
                             g_bounds_x,
@@ -1041,9 +1040,9 @@ class Tree(Observable):
                             idxs = greater_idx,
                             split_dim = split_dim,
                             region_deletion_rng=self.region_deletion_rng,
-                            get_max_turn_count=self.get_max_turn_count,
-                            get_prior_max_turn_count=self.get_prior_max_turn_count,
-                            progressive_split_ranges=self.progressive_split_ranges)
+                            progressive_split_ranges=self.progressive_split_ranges,
+                            max_turn_counts=self.max_turn_counts,
+                            get_execution_iteration=self.get_execution_iteration)
 
     def calc_tree_variance_of_cos_sims(self, tree_sensory):
         sensory_combinations_idxs = list(combinations(range(len(tree_sensory)), 2))
@@ -1783,7 +1782,8 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                                               'volume':True},
                                                                                             'plot_objects': [cat_plot_obj, elephant_plot_obj],
                                                                                             'region_deletion':True,
-                                                                                            'progressive_split_ranges': {'max_ppr': (7, 15), 'prog_win': (7, 15)},
+                                                                                            'max_turn_counts': [8, 2],
+                                                                                            'progressive_split_ranges': {'max_ppr': [(7, 15), (15,15)], 'prog_win': [(7, 4), (4,1)]},
                                                                                                               },
                                            'cozmo_clip_cos_sim_split_progressive_splits_random_sampling': {'max_points_per_region': 3, #30 # twenty seems good so far
                                                                                             'max_depth': 50,
