@@ -323,16 +323,16 @@ class Tree(Observable):
             # There will always be at least 1 configuration for the ranges
             prog_win_min, prog_win_max = progress_win_size_ranges[0]
             max_ppr_min, max_ppr_max = max_points_per_region_ranges[0]
-            max_turn_count = max_turn_counts[0]
-            progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, max_turn_count+1, endpoint=True, dtype=int)
-            max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, max_turn_count+1, endpoint=True, dtype=int)
+            max_turn_count = max_turn_counts[0] + 1 # + 1 because we complete all turns which means we need be able to index up to and including the last turn
+            progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, max_turn_count, endpoint=True, dtype=int)
+            max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, max_turn_count, endpoint=True, dtype=int)
             for i in range(1, execution_iteration+1): # for all prior iterations,
                 print(f"Prior iterations detected, using a modified distribution. If # iterations are greater than predefined configs, will use last value.")
                 prog_win_min, prog_win_max = progress_win_size_ranges[i] if i < len(progress_win_size_ranges) else progress_win_size_ranges[-1]
                 max_ppr_min, max_ppr_max = max_points_per_region_ranges[i] if i < len(max_points_per_region_ranges) else max_points_per_region_ranges[-1]
                 max_turn_count = max_turn_counts[i] if i < len(max_turn_counts) else max_turn_counts[-1]
-                iter_progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, max_turn_count+1, endpoint=True, dtype=int)
-                iter_max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, max_turn_count+1, endpoint=True, dtype=int)
+                iter_progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, max_turn_count, endpoint=True, dtype=int)
+                iter_max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, max_turn_count, endpoint=True, dtype=int)
                 progress_win_size_distribution = np.concatenate([progress_win_size_distribution, iter_progress_win_size_distribution])
                 max_points_per_region_distribution =np.concatenate([max_points_per_region_distribution,iter_max_points_per_region_distribution])
             print(f"max_points_per_region_distribution: {max_points_per_region_distribution}")
