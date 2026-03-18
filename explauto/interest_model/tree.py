@@ -42,18 +42,19 @@ class InterestTree(InterestModel, Observable):
                  plot_objects=None,
                  rand_seed=None,
                  max_turn_counts=None,
-                 region_deletion=False,
+                 region_deletion_alphas=None,
                  progressive_split_ranges=None):
 
         self.rand_seed = rand_seed
-        self.region_deletion_rng = np.random.default_rng(rand_seed)
+        self.region_deletion_alphas = region_deletion_alphas
+        self.interest_tree_rng = np.random.default_rng(rand_seed)
 
         self.conf = conf
         self.bounds = self.conf.bounds[:, expl_dims]
         self.competence_measure = competence_measure
         if progressive_split_ranges:
-            if region_deletion is False:
-                raise ValueError("ERROR: To use progressive_split_ranges region_deletion MUST be True")
+            if region_deletion_alphas is None:
+                raise ValueError("ERROR: To use progressive_split_ranges region_deletion MUST be configured")
             progress_win_size_ranges = progressive_split_ranges['prog_win']
             max_points_per_region_ranges = progressive_split_ranges['max_ppr']
             if not all([(prog_win <= max_point) for prog_win, max_point in zip(progress_win_size_ranges,max_points_per_region_ranges)]):
@@ -67,7 +68,6 @@ class InterestTree(InterestModel, Observable):
         self.data_c = None # list of competence measures
         self.data_nav_memory_map = None # list of navigation memory maps
         self.data_flow_uuid = None # list of flow ids
-        self.region_deletion = region_deletion
         self.execution_iteration = 0
         self.max_turn_counts = max_turn_counts
         self.progressive_split_ranges = progressive_split_ranges
@@ -85,7 +85,7 @@ class InterestTree(InterestModel, Observable):
                          sampling_mode=sampling_mode,
                          idxs=[],
                          plot_objects=plot_objects,
-                         region_deletion_rng=self.region_deletion_rng,
+                         interest_tree_rng=self.interest_tree_rng,
                          progressive_split_ranges=self.progressive_split_ranges,
                          get_execution_iteration=self.get_execution_iteration,
                          max_turn_counts=self.max_turn_counts)
@@ -137,11 +137,8 @@ class InterestTree(InterestModel, Observable):
         if tree.leafnode: # we shouldn't get here except for root level
             # print("hit a leaf, skipped region deletion")
             return None
-        # todo: idk if I like this, since it has a ton of early movement because with only 4 regions almost every point results in a region with no lower lower
-        # elif tree.lower.lower is None or np.random.uniform() < 0.15: # automatically increase likelihood of nuking as we get deeper into tree bc Bernoulli Process
-        # only enters random walk 30% of the time, as it walks there is only 20% chance of removing upper and lower nodes
-        # elif np.random.uniform() < 0.2: # automatically increase likelihood of nuking as we get deeper into tree bc Bernoulli Process
-        elif self.region_deletion_rng.random() < 0.2: # automatically increase likelihood of nuking as we get deeper into tree bc Bernoulli Process
+        # only enters random walk region_deletion_alphas[0] of the time, as it walks there is only region_deletion_alphas[1] chance of removing upper and lower nodes
+        elif self.interest_tree_rng.random() < self.region_deletion_alphas[1]: # automatically increase likelihood of  as we get deeper into tree bc Bernoulli Process
             tree.leafnode = True
             tree.lower = None
             tree.greater = None
@@ -199,13 +196,9 @@ class InterestTree(InterestModel, Observable):
         else:
             self.data_nav_memory_map = np.append(self.data_nav_memory_map, np.array([nav_memory_map]), axis=0)
 
-
-        # Catherine TODO: is this the right spot for this?
-        # TODO: put in so only triggers if experiment f, so have it default to never (0) unless f is set, in which case use f
-        if self.region_deletion:
-            # if np.random.uniform() < 0.3: # 30% of time traverse the tree and possibly delete a region
-            if self.region_deletion_rng.random() < 0.3: # 30% of time traverse the tree and possibly delete a region
-                explosions = self.random_walk_region_deletion(self.tree)
+        if self.region_deletion_alphas is not None:
+            if self.interest_tree_rng.random() < self.region_deletion_alphas[0]: # region_deletion_alphas[0] of time traverse the tree and possibly delete a region
+                self.random_walk_region_deletion(self.tree)
 
         self.tree.add(np.shape(self.data_x)[0] - 1)
 
@@ -293,12 +286,12 @@ class Tree(Observable):
                  idxs=None,
                  split_dim=0,
                  plot_objects=None,
-                 region_deletion_rng=None,
+                 interest_tree_rng=None,
                  progressive_split_ranges=None,
                  max_turn_counts=None,
                  ):
 
-        self.region_deletion_rng = region_deletion_rng
+        self.interest_tree_rng = interest_tree_rng
         self.get_data_x = get_data_x
         self.bounds_x = np.array(bounds_x, dtype=np.float64)
         self.get_data_y = get_data_y
@@ -902,7 +895,7 @@ class Tree(Observable):
             split_min = min(split_dim_data)
             split_max = max(split_dim_data)
             # split_value = split_min + np.random.rand() * (split_max - split_min)
-            split_value = split_min + self.region_deletion_rng.random() * (split_max - split_min)
+            split_value = split_min + self.interest_tree_rng.random() * (split_max - split_min)
 
         elif self.split_mode == 'median':
             # Split on median (which fall on the middle of two points for even max_points_per_region)
@@ -928,7 +921,7 @@ class Tree(Observable):
             if len(self.idxs) > self.max_points_per_region:
                 m = self.max_points_per_region # Constant that might be tuned: number of random split values to choose between
                 # rand_splits = split_min + np.random.rand(m) * (split_max - split_min)
-                rand_splits = split_min + self.region_deletion_rng.random(m) * (split_max - split_min)
+                rand_splits = split_min + self.interest_tree_rng.random(m) * (split_max - split_min)
                 splits_fitness = np.zeros(m)
                 for i in range(m):
                     lower_idx = list(np.array(self.idxs)[np.nonzero(split_dim_data <= rand_splits[i])[0]])
@@ -1020,7 +1013,7 @@ class Tree(Observable):
                           self.sampling_mode,
                           idxs = lower_idx,
                           split_dim = split_dim,
-                          region_deletion_rng=self.region_deletion_rng,
+                          interest_tree_rng=self.interest_tree_rng,
                           progressive_split_ranges=self.progressive_split_ranges,
                           max_turn_counts=self.max_turn_counts,
                           get_execution_iteration=self.get_execution_iteration)
@@ -1039,7 +1032,7 @@ class Tree(Observable):
                             self.sampling_mode,
                             idxs = greater_idx,
                             split_dim = split_dim,
-                            region_deletion_rng=self.region_deletion_rng,
+                            interest_tree_rng=self.interest_tree_rng,
                             progressive_split_ranges=self.progressive_split_ranges,
                             max_turn_counts=self.max_turn_counts,
                             get_execution_iteration=self.get_execution_iteration)
@@ -1712,6 +1705,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                             'volume':True},
                                                                           'plot_objects': [cat_blob_plot_obj, elephant_blob_plot_obj],
                                                                           'region_deletion':False},
+                                                                          'region_deletion_alphas':None},
                                            'cozmo_clip': {'max_points_per_region': 30, # twenty seems good so far
                                                           'max_depth': 50,
                                                           'split_mode': 'best_interest_diff',
@@ -1724,6 +1718,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                             'volume':True},
                                                           'plot_objects': [cat_plot_obj, elephant_plot_obj],
                                                           'region_deletion':False},
+                                                          'region_deletion_alphas':None},
                                            'cozmo_clip_cos_sim_split': {'max_points_per_region': 10, #30 # twenty seems good so far
                                                                         'max_depth': 50,
                                                                         'split_mode': 'variance_of_cos_sim',
@@ -1736,6 +1731,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                           'volume':True},
                                                                         'plot_objects': [cat_plot_obj, elephant_plot_obj],
                                                                         'region_deletion':False},
+                                                                        'region_deletion_alphas':None},
                                            'cozmo_clip_cos_sim_split_and_learning_prog': {'max_points_per_region': 5, #5 for developing! use 30 normally #30, # twenty seems good so far
                                                                                           'max_depth': 50,
                                                                                           'split_mode': 'variance_of_cos_sim',
@@ -1748,6 +1744,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                                             'volume':True},
                                                                                           'plot_objects': [cat_plot_obj, elephant_plot_obj],
                                                                                           'region_deletion':False},
+                                                                                          'region_deletion_alphas':None},
                                            'cozmo_clip_cos_sim_split_random_sampling': {'max_points_per_region': 15, #30 # twenty seems good so far
                                                                                         'max_depth': 50,
                                                                                         'split_mode': 'variance_of_cos_sim',
@@ -1759,6 +1756,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                                           'volume':False}, # Do not even weight random by volume, do true random
                                                                                         'plot_objects': [cat_plot_obj, elephant_plot_obj],
                                                                                         'region_deletion':False},
+                                                                                        'region_deletion_alphas':None},
                                            'cozmo_clip_cos_sim_split_with_region_deletion': {'max_points_per_region': 10, #30 # twenty seems good so far
                                                                                             'max_depth': 50,
                                                                                             'split_mode': 'variance_of_cos_sim',
@@ -1770,6 +1768,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                                               'volume':True}, # Do not even weight random by volume, do true random
                                                                                             'plot_objects': [cat_plot_obj, elephant_plot_obj],
                                                                                             'region_deletion':True},
+                                                                                            'region_deletion_alphas':(0.3, 0.2)}, # 30% of the time randomly walk, 20% chance to delete region during walk
                                            'cozmo_clip_cos_sim_split_progressive_splits': {'max_points_per_region': 3, #30 # twenty seems good so far
                                                                                             'max_depth': 50,
                                                                                             'split_mode': 'variance_of_cos_sim',
@@ -1782,6 +1781,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                                               'volume':True},
                                                                                             'plot_objects': [cat_plot_obj, elephant_plot_obj],
                                                                                             'region_deletion':True,
+                                                                                            'region_deletion_alphas':(0.3, 0.2),
                                                                                             'max_turn_counts': [8, 2],
                                                                                             'progressive_split_ranges': {'max_ppr': [(7, 15), (15,15)], 'prog_win': [(7, 4), (4,1)]},
                                                                                                               },
@@ -1796,6 +1796,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                                               'volume':False},
                                                                                             'plot_objects': [cat_plot_obj, elephant_plot_obj],
                                                                                             'region_deletion':True,
+                                                                                            'region_deletion_alphas':(0.3, 0.2),
                                                                                             'progressive_split_ranges': {'max_ppr': (7, 15), 'prog_win': (7, 15)},
                                                                                                           },
                                            })}
