@@ -1703,8 +1703,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                             'param':0.1,
                                                                                             'multiscale':False,
                                                                                             'volume':True},
-                                                                          'plot_objects': [cat_blob_plot_obj, elephant_blob_plot_obj],
-                                                                          'region_deletion':False},
+                                                                          'plot_objects': None,
                                                                           'region_deletion_alphas':None},
                                            'cozmo_clip': {'max_points_per_region': 30, # twenty seems good so far
                                                           'max_depth': 50,
@@ -1716,8 +1715,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                             'param':0.1,
                                                                             'multiscale':False,
                                                                             'volume':True},
-                                                          'plot_objects': [cat_plot_obj, elephant_plot_obj],
-                                                          'region_deletion':False},
+                                                          'plot_objects': None,
                                                           'region_deletion_alphas':None},
                                            'cozmo_clip_cos_sim_split': {'max_points_per_region': 10, #30 # twenty seems good so far
                                                                         'max_depth': 50,
@@ -1729,8 +1727,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                           'param':0.1,
                                                                                           'multiscale':False,
                                                                                           'volume':True},
-                                                                        'plot_objects': [cat_plot_obj, elephant_plot_obj],
-                                                                        'region_deletion':False},
+                                                                        'plot_objects': None,
                                                                         'region_deletion_alphas':None},
                                            'cozmo_clip_cos_sim_split_and_learning_prog': {'max_points_per_region': 5, #5 for developing! use 30 normally #30, # twenty seems good so far
                                                                                           'max_depth': 50,
@@ -1742,8 +1739,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                                             'param':0.1,
                                                                                                             'multiscale':False,
                                                                                                             'volume':True},
-                                                                                          'plot_objects': [cat_plot_obj, elephant_plot_obj],
-                                                                                          'region_deletion':False},
+                                                                                          'plot_objects': None,
                                                                                           'region_deletion_alphas':None},
                                            'cozmo_clip_cos_sim_split_random_sampling': {'max_points_per_region': 15, #30 # twenty seems good so far
                                                                                         'max_depth': 50,
@@ -1754,8 +1750,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                         'sampling_mode': {'mode':'random',
                                                                                                           'multiscale':False,
                                                                                                           'volume':False}, # Do not even weight random by volume, do true random
-                                                                                        'plot_objects': [cat_plot_obj, elephant_plot_obj],
-                                                                                        'region_deletion':False},
+                                                                                        'plot_objects': None,
                                                                                         'region_deletion_alphas':None},
                                            'cozmo_clip_cos_sim_split_with_region_deletion': {'max_points_per_region': 10, #30 # twenty seems good so far
                                                                                             'max_depth': 50,
@@ -1766,8 +1761,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                             'sampling_mode': {'mode':'epsilon_greedy',
                                                                                                               'multiscale':False,
                                                                                                               'volume':True}, # Do not even weight random by volume, do true random
-                                                                                            'plot_objects': [cat_plot_obj, elephant_plot_obj],
-                                                                                            'region_deletion':True},
+                                                                                            'plot_objects': None,
                                                                                             'region_deletion_alphas':(0.3, 0.2)}, # 30% of the time randomly walk, 20% chance to delete region during walk
                                            'cozmo_clip_cos_sim_split_progressive_splits': {'max_points_per_region': 3, #30 # twenty seems good so far
                                                                                             'max_depth': 50,
@@ -1779,8 +1773,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                                               'param':0.1,
                                                                                                               'multiscale':False,
                                                                                                               'volume':True},
-                                                                                            'plot_objects': [cat_plot_obj, elephant_plot_obj],
-                                                                                            'region_deletion':True,
+                                                                                            'plot_objects': None,
                                                                                             'region_deletion_alphas':(0.3, 0.2),
                                                                                             'max_turn_counts': [8, 2],
                                                                                             'progressive_split_ranges': {'max_ppr': [(7, 15), (15,15)], 'prog_win': [(7, 4), (4,1)]},
@@ -1794,8 +1787,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                             'sampling_mode': {'mode':'random',
                                                                                                               'multiscale':False,
                                                                                                               'volume':False},
-                                                                                            'plot_objects': [cat_plot_obj, elephant_plot_obj],
-                                                                                            'region_deletion':True,
+                                                                                            'plot_objects': None,
                                                                                             'region_deletion_alphas':(0.3, 0.2),
                                                                                             'progressive_split_ranges': {'max_ppr': (7, 15), 'prog_win': (7, 15)},
                                                                                                           },
