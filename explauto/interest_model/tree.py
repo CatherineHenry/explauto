@@ -72,7 +72,6 @@ class InterestTree(InterestModel, Observable):
         self.data_c = None # list of competence measures
         self.data_nav_memory_map = None # list of navigation memory maps
         self.data_flow_uuid = None # list of flow ids
-        self.execution_iteration = 0
         self.max_turn_counts = max_turn_counts
         self.progressive_split_ranges = progressive_split_ranges
         self.tree = Tree(get_data_x=self.get_data_x,
@@ -107,7 +106,22 @@ class InterestTree(InterestModel, Observable):
         return self.data_c
 
     def get_execution_iteration(self):
-        return self.execution_iteration
+        max_turn_counts = self.max_turn_counts
+        execution_turns = copy.deepcopy(max_turn_counts)
+        if len(self.get_data_y()) == 0:
+            return 0
+        if len(self.get_data_y()) < sum(execution_turns):
+            while len(self.get_data_y()) <= sum(execution_turns):
+                # print(execution_turns)
+                # print(sum(execution_turns))
+                execution_turns = execution_turns[:-1]
+
+        else:
+            while len(self.get_data_y()) > sum(execution_turns):
+                execution_turns.append(execution_turns[-1])
+        # print(sum(execution_turns))
+        # print(execution_turns)
+        return len(execution_turns)
 
     def get_data_flow_uuid(self):
         return self.data_flow_uuid
