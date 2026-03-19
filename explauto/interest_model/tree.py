@@ -150,8 +150,6 @@ class InterestTree(InterestModel, Observable):
 
     def random_walk_region_deletion(self, tree, pathing=None, probability_of_region_deletion=0.3):
         # Will recurse until it either hits a leaf or a region is deleted
-        if pathing is None:
-            pathing = []
         if tree.leafnode: # we shouldn't get here except for root level
             # print("hit a leaf, skipped region deletion")
             return None
@@ -168,12 +166,15 @@ class InterestTree(InterestModel, Observable):
         # else:
         #     pathing.append("greater")
         #     random_walk(tree.greater, pathing)
+
         # Travel down path with the greatest density (this deviates from true random)
         if tree.lower.density() > tree.greater.density():
-            pathing.append(f"lower (density: {tree.lower.density()})")
+            if isinstance(pathing, list):
+                pathing.append(f"lower (density: {tree.lower.density()})")
             return self.random_walk_region_deletion(tree.lower, pathing, probability_of_region_deletion)
         else:
-            pathing.append(f"greater (density: {tree.greater.density()})")
+            if isinstance(pathing, list):
+                pathing.append(f"greater (density: {tree.greater.density()})")
             return self.random_walk_region_deletion(tree.greater, pathing, probability_of_region_deletion)
 
     def update(self, xy, ms, flow_uuid=None, nav_memory_map=None):
