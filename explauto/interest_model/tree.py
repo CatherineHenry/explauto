@@ -1273,7 +1273,6 @@ class Tree(Observable):
         return f_leaf(self) if self.leafnode and self.can_sample else f_inter(self.lower.fold_up(f_inter, f_leaf),
                                                                               self.greater.fold_up(f_inter, f_leaf))
 
-
     def competence_measure(self, target, reached):
         # return competence_exp(target, reached, 0, 10)
         return prediction_error_cos_dist_exp(target, reached)
@@ -1802,7 +1801,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                                               'multiscale':False,
                                                                                                               'volume':False},
                                                                                             'plot_objects': None,
-                                                                                            'region_deletion_alphas':[(0.3, 0.2)],
+                                                                                            'region_deletion_alphas':[(0.3, 0.2), (0.2, 0.15), (0.1, 0.1)],
                                                                                             'max_turn_counts': [45, 20, 20], # 1st execution, 2nd execution, all future executions
                                                                                             'progressive_split_ranges': {'max_ppr': [(8, 15), (15,20), (20,20)],
                                                                                                                          'prog_win': [(8, 5), (5,5), (5,5)]},
@@ -1816,7 +1815,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                                               'multiscale':False,
                                                                                                               'volume':False},
                                                                                             'plot_objects': None,
-                                                                                            'region_deletion_alphas':[(0.3, 0.2)],
+                                                                                            'region_deletion_alphas':[(0.3, 0.2), (0.2, 0.15), (0.1, 0.1)],
                                                                                             'max_turn_counts': [45, 20, 20], # 1st execution, all future executions
                                                                                             'progressive_split_ranges': {'max_ppr': [(8, 15), (15,20), (20,20)],
                                                                                                                         'prog_win': [(8, 5), (5,5), (5,5)]},
