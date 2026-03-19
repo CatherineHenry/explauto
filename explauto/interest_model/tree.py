@@ -32,13 +32,13 @@ class InterestTree(InterestModel, Observable):
     def __init__(self,
                  conf,
                  expl_dims,
-                 max_points_per_region,
                  max_depth,
                  split_mode,
                  competence_measure,
-                 progress_win_size,
                  progress_measure,
                  sampling_mode,
+                 max_points_per_region=None,
+                 progress_win_size=None,
                  plot_objects=None,
                  rand_seed=None,
                  max_turn_counts=None,
@@ -59,9 +59,13 @@ class InterestTree(InterestModel, Observable):
             max_points_per_region_ranges = progressive_split_ranges['max_ppr']
             if not all([(prog_win <= max_point) for prog_win, max_point in zip(progress_win_size_ranges,max_points_per_region_ranges)]):
                 raise ValueError("WARNING: progress_win_size should be < max_points_per_region")
+        elif progress_win_size and max_points_per_region:
+            if progress_win_size >= max_points_per_region:
+                raise ValueError("WARNING: progress_win_size should be < max_points_per_region")
+        else:
+            raise ValueError("ERROR: Must set progressive_split_ranges or progress_win_size and max_points_per_region. "
+                             "If all are set, will use progressive splits.")
 
-        elif progress_win_size >= max_points_per_region:
-            raise ValueError("WARNING: progress_win_size should be < max_points_per_region")
 
         self.data_x = None # list of target motor or sensory goals 'x'
         self.data_y = None # list of reached sensory effect
@@ -71,12 +75,12 @@ class InterestTree(InterestModel, Observable):
         self.execution_iteration = 0
         self.max_turn_counts = max_turn_counts
         self.progressive_split_ranges = progressive_split_ranges
-        self.tree = Tree(self.get_data_x,
-                         np.array(self.bounds, dtype=float),
-                         self.get_data_y,
-                         self.get_data_flow_uuid,
-                         self.get_data_c,
-                         self.get_data_nav_memory_map,
+        self.tree = Tree(get_data_x=self.get_data_x,
+                         bounds_x=np.array(self.bounds, dtype=float),
+                         get_data_y=self.get_data_y,
+                         get_data_flow_uuid=self.get_data_flow_uuid,
+                         get_data_c=self.get_data_c,
+                         get_data_nav_memory_map=self.get_data_nav_memory_map,
                          max_points_per_region=max_points_per_region,
                          max_depth=max_depth,
                          split_mode=split_mode,
@@ -199,7 +203,8 @@ class InterestTree(InterestModel, Observable):
         if self.region_deletion_alphas is not None:
             execution_iteration = self.get_execution_iteration()
             iteration_region_deletion_alphas = self.region_deletion_alphas[execution_iteration] if execution_iteration < len(self.region_deletion_alphas) else self.region_deletion_alphas[-1]
-            if self.interest_tree_rng.random() < self.region_deletion_alphas[0]: # region_deletion_alphas[0] of time traverse the tree and possibly delete a region
+            if self.interest_tree_rng.random() < iteration_region_deletion_alphas[0]: # region_deletion_alphas[0] of time traverse the tree and possibly delete a region
+                print(f"Starting walk for region deletion. Using probabilities {iteration_region_deletion_alphas} (probability to start region deletion walk, probability to delete a region during walk)")
                 self.random_walk_region_deletion(self.tree, probability_of_region_deletion=iteration_region_deletion_alphas[1])
 
         self.tree.add(np.shape(self.data_x)[0] - 1)
@@ -278,13 +283,13 @@ class Tree(Observable):
                  get_data_flow_uuid,
                  get_data_c,
                  get_data_nav_memory_map,
-                 max_points_per_region,
                  max_depth,
                  split_mode,
-                 progress_win_size,
                  progress_measure,
                  sampling_mode,
                  get_execution_iteration,
+                 progress_win_size=None,
+                 max_points_per_region=None,
                  idxs=None,
                  split_dim=0,
                  plot_objects=None,
@@ -1001,18 +1006,18 @@ class Tree(Observable):
 
         g_bounds_x = np.array(self.bounds_x)
         g_bounds_x[0, self.split_dim] = split_value
-        self.lower = Tree(self.get_data_x,
-                          l_bounds_x,
-                          self.get_data_y,
-                          self.get_data_flow_uuid,
-                          self.get_data_c,
-                          self.get_data_nav_memory_map,
-                          self.max_points_per_region,
-                          self.max_depth - 1,
-                          self.split_mode,
-                          self.progress_win_size,
-                          self.progress_measure,
-                          self.sampling_mode,
+        self.lower = Tree(get_data_x=self.get_data_x,
+                          bounds_x=l_bounds_x,
+                          get_data_y=self.get_data_y,
+                          get_data_flow_uuid=self.get_data_flow_uuid,
+                          get_data_c=self.get_data_c,
+                          get_data_nav_memory_map=self.get_data_nav_memory_map,
+                          max_depth=self.max_depth - 1,
+                          split_mode=self.split_mode,
+                          progress_measure=self.progress_measure,
+                          sampling_mode=self.sampling_mode,
+                          progress_win_size=self.progress_win_size,
+                          max_points_per_region=self.max_points_per_region,
                           idxs = lower_idx,
                           split_dim = split_dim,
                           interest_tree_rng=self.interest_tree_rng,
@@ -1020,18 +1025,18 @@ class Tree(Observable):
                           max_turn_counts=self.max_turn_counts,
                           get_execution_iteration=self.get_execution_iteration)
 
-        self.greater = Tree(self.get_data_x,
-                            g_bounds_x,
-                            self.get_data_y,
-                            self.get_data_flow_uuid,
-                            self.get_data_c,
-                            self.get_data_nav_memory_map,
-                            self.max_points_per_region,
-                            self.max_depth - 1,
-                            self.split_mode,
-                            self.progress_win_size,
-                            self.progress_measure,
-                            self.sampling_mode,
+        self.greater = Tree(get_data_x=self.get_data_x,
+                            bounds_x=g_bounds_x,
+                            get_data_y=self.get_data_y,
+                            get_data_flow_uuid=self.get_data_flow_uuid,
+                            get_data_c=self.get_data_c,
+                            get_data_nav_memory_map=self.get_data_nav_memory_map,
+                            max_depth=self.max_depth - 1,
+                            split_mode=self.split_mode,
+                            progress_measure=self.progress_measure,
+                            sampling_mode=self.sampling_mode,
+                            progress_win_size=self.progress_win_size,
+                            max_points_per_region=self.max_points_per_region,
                             idxs = greater_idx,
                             split_dim = split_dim,
                             interest_tree_rng=self.interest_tree_rng,
@@ -1772,35 +1777,34 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                             'plot_objects': None,
                                                                                             'max_turn_counts': [60, 20], # 1st execution, all future executions
                                                                                             'region_deletion_alphas':[(0.3, 0.2)]}, # 30% of the time randomly walk, 20% chance to delete region during walk
-                                           'cozmo_clip_cos_sim_split_progressive_splits': {'max_points_per_region': 3, #30 # twenty seems good so far
+                                           'cozmo_clip_cos_sim_split_progressive_splits': {
                                                                                             'max_depth': 50,
                                                                                             'split_mode': 'variance_of_cos_sim',
                                                                                             'competence_measure': competence_cos_dist_exp,
-                                                                                            'progress_win_size': 2, #10, # TODO try 15?
                                                                                             'progress_measure': 'abs_deriv_smooth',
                                                                                             'sampling_mode': {'mode':'epsilon_greedy',
                                                                                                               'param':0.1,
                                                                                                               'multiscale':False,
-                                                                                                              'volume':True},
+                                                                                                              'volume':False},
                                                                                             'plot_objects': None,
                                                                                             'region_deletion_alphas':[(0.3, 0.2)],
-                                                                                            'max_turn_counts': [8, 2], # 1st execution, all future executions
-                                                                                            'progressive_split_ranges': {'max_ppr': [(7, 15), (15,15), (2,2)],
-                                                                                                                         'prog_win': [(7, 4), (4,1), (1,1)]},
+                                                                                            'max_turn_counts': [45, 20, 20], # 1st execution, 2nd execution, all future executions
+                                                                                            'progressive_split_ranges': {'max_ppr': [(8, 15), (15,20), (20,20)],
+                                                                                                                         'prog_win': [(8, 5), (5,5), (5,5)]},
                                                                                                               },
-                                           'cozmo_clip_cos_sim_split_progressive_splits_random_sampling': {'max_points_per_region': 3, #30 # twenty seems good so far
+                                           'cozmo_clip_cos_sim_split_progressive_splits_random_sampling': {
                                                                                             'max_depth': 50,
                                                                                             'split_mode': 'variance_of_cos_sim',
                                                                                             'competence_measure': competence_cos_dist_exp,
-                                                                                            'progress_win_size': 2, #10, # TODO try 15?
                                                                                             'progress_measure': 'abs_deriv_smooth',
                                                                                             'sampling_mode': {'mode':'random',
                                                                                                               'multiscale':False,
                                                                                                               'volume':False},
                                                                                             'plot_objects': None,
                                                                                             'region_deletion_alphas':[(0.3, 0.2)],
-                                                                                            'max_turn_counts': [60, 20], # 1st execution, all future executions
-                                                                                            'progressive_split_ranges': {'max_ppr': (7, 15), 'prog_win': (7, 15)},
+                                                                                            'max_turn_counts': [45, 20, 20], # 1st execution, all future executions
+                                                                                            'progressive_split_ranges': {'max_ppr': [(8, 15), (15,20), (20,20)],
+                                                                                                                        'prog_win': [(8, 5), (5,5), (5,5)]},
                                                                                                           },
                                            })}
 
