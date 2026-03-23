@@ -108,7 +108,7 @@ class InterestTree(InterestModel, Observable):
     def get_execution_iteration(self):
         max_turn_counts = self.max_turn_counts
         execution_turns = copy.deepcopy(max_turn_counts)
-        if len(self.get_data_y()) == 0:
+        if self.get_data_y() is None or len(self.get_data_y()) == 0:
             return 0
         if len(self.get_data_y()) < sum(execution_turns):
             while len(self.get_data_y()) <= sum(execution_turns):
