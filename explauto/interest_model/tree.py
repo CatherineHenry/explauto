@@ -1084,18 +1084,21 @@ class Tree(Observable):
                             max_turn_counts=self.max_turn_counts,
                             get_execution_iteration=self.get_execution_iteration)
 
+
     def calc_tree_variance_of_cos_sims(self, tree_sensory):
-        sensory_combinations_idxs = list(combinations(range(len(tree_sensory)), 2))
-        cos_sims = []
-        for combo_idx_a, combo_idx_b in sensory_combinations_idxs:
-            cos_sims.append(cosine_similarity([tree_sensory[combo_idx_a]], [tree_sensory[combo_idx_b]]).flatten()[0])
-        if len(cos_sims) <= 1:
+        if len(tree_sensory) < 3:
             print("Should not be evaluating splits with fewer than 3 data points")
             return 0.001 # make it incredibly unlikely the split is selected
-        else:
-            cos_sims_variance = np.var(cos_sims) # if there is only one value variance is not very meaningful
+        XA = tree_sensory
+        XB = tree_sensory
+        cos_sims = cosine_similarity(XA, XB)
+        upper_triangle_indices = np.triu_indices(len(tree_sensory), k=1) # only get unique combinations from pairwise matrix
+        # print(cos_sims.flatten())
+        # print(cos_sims[upper_triangle_indices])
+        only_unique_combinations = cos_sims[upper_triangle_indices].flatten()
+        cos_sims_variance = np.var(only_unique_combinations) # if there is only one value, variance is not very meaningful
         return cos_sims_variance
-
+    
     # Adapted from scipy.spatial.kdtree
     def __query(self, x, k=1, eps=0, p=2, distance_upper_bound=np.inf):
 
