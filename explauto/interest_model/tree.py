@@ -1298,10 +1298,6 @@ class Tree(Observable):
         return f_leaf(self) if self.leafnode and self.can_sample else f_inter(self.lower.fold_up(f_inter, f_leaf),
                                                                               self.greater.fold_up(f_inter, f_leaf))
 
-    def competence_measure(self, target, reached):
-        # return competence_exp(target, reached, 0, 10)
-        return prediction_error_cos_dist_exp(target, reached)
-
     def plot(self, ax=None, ax2=None, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=30, plot_dims=[0,1], legend_artists=None, cmap=None):
         """
         Plot a projection on 2D of the Tree.
