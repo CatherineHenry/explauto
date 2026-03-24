@@ -44,8 +44,9 @@ def prediction_error_cos_dist_exp(target, reached, bounds):
 
 
 def competence_cos_dist_exp(target, reached, bounds):
-    prediction_error = prediction_error_cos_dist_exp(target, reached, bounds)
-    return 1 - prediction_error[2]
+    cos_sim, cos_dist, bounded_cos = prediction_error_cos_dist_exp(target, reached, bounds)
+    # return prediction error
+    return cos_sim, cos_dist, 1 - bounded_cos
 
 
 def competence_bool(target, reached):
