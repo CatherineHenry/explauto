@@ -1845,6 +1845,35 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                                             'progressive_split_ranges': {'max_ppr': [(8, 15), (15,20), (20,20)],
                                                                                                                         'prog_win': [(8, 5), (5,5), (5,5)]},
                                                                                                           },
+                                           'cozmo_clip_cos_sim_split_progressive_splits_epsilon_greedy_sampling_new_learning_potential_calculation': {
+                                               'max_depth': 50,
+                                               'split_mode': 'variance_of_cos_sim',
+                                               'competence_measure': competence_cos_dist_exp,
+                                               'progress_measure': 'idk',
+                                               'sampling_mode': {'mode':'epsilon_greedy',
+                                                                 'param':0.1,
+                                                                 'multiscale':False,
+                                                                 'volume':False},
+                                               'plot_objects': None,
+                                               'region_deletion_alphas':[(0.3, 0.2), (0.2, 0.15), (0.1, 0.1)],
+                                               'max_turn_counts': [90, 20, 20], # 1st execution, all future executions
+                                               'progressive_split_ranges': {'max_ppr': [(8, 15), (15,20), (20,20)],
+                                                                            'prog_win': [(8, 8)]},
+                                           },
+                                           'cozmo_clip_cos_sim_split_progressive_splits_random_sampling_new_learning_potential_calculation': {
+                                               'max_depth': 50,
+                                               'split_mode': 'variance_of_cos_sim',
+                                               'competence_measure': competence_cos_dist_exp,
+                                               'progress_measure': 'idk',
+                                               'sampling_mode': {'mode':'random',
+                                                                 'multiscale':True, # Should be true random because can select from all nodes of the tree
+                                                                 'volume':False},
+                                               'plot_objects': None,
+                                               'region_deletion_alphas':[(0.3, 0.2), (0.2, 0.15), (0.1, 0.1)],
+                                               'max_turn_counts': [90, 20, 20], # 1st execution, all future executions
+                                               'progressive_split_ranges': {'max_ppr': [(8, 15), (15,20), (20,20)],
+                                                                            'prog_win': [(8, 8)]},
+                                           },
                                            })}
 
 
