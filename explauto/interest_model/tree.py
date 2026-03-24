@@ -863,6 +863,28 @@ class Tree(Observable):
                 diff = comp_end - comp_beg
                 return (diff + 1) / 4
 
+        elif self.progress_measure == 'idk':
+            if len(idxs) <= 1:
+                return 0
+            else:
+                # https://stackoverflow.com/questions/48000663/step-detection-in-one-dimensional-data
+                idxs = sorted(idxs)[- self.progress_win_size:]
+                idxs_competencies = self.get_data_c()[idxs]
+
+                dary = np.array([*map(float, idxs_competencies)])
+                dary -= np.average(dary)
+
+                step = np.hstack((np.ones(len(dary)), 0*np.ones(len(dary))))
+
+                dary_step = np.convolve(dary, step, mode='valid')
+
+                # avg_convolution = np.abs(np.mean(dary_step))
+                comp_beg = np.mean(dary_step[:int(float(len(dary_step))/2.)])
+                comp_end = np.mean(idxs_competencies[int(float(len(dary_step))/2.):])
+                # print(f"convolve: {np.convolve(comp_beg, comp_end)}")
+                deriv = 1 - np.abs(comp_end - comp_beg)
+
+                return deriv
         else:
             raise NotImplementedError(self.progress_measure)
 
