@@ -43,7 +43,8 @@ class InterestTree(InterestModel, Observable):
                  rand_seed=None,
                  max_turn_counts=None,
                  region_deletion_alphas=None,
-                 progressive_split_ranges=None):
+                 progressive_split_ranges=None,
+                 simulation_data=None):
 
         self.rand_seed = rand_seed
         self.region_deletion_alphas = region_deletion_alphas
@@ -52,6 +53,7 @@ class InterestTree(InterestModel, Observable):
         self.conf = conf
         self.bounds = self.conf.bounds[:, expl_dims]
         self.competence_measure = competence_measure
+
         if progressive_split_ranges:
             if region_deletion_alphas is None:
                 raise ValueError("ERROR: To use progressive_split_ranges region_deletion MUST be configured")
@@ -89,12 +91,19 @@ class InterestTree(InterestModel, Observable):
                          idxs=[],
                          plot_objects=plot_objects,
                          interest_tree_rng=self.interest_tree_rng,
-                         progressive_split_ranges=self.progressive_split_ranges,
                          get_execution_iteration=self.get_execution_iteration,
-                         max_turn_counts=self.max_turn_counts)
+                         get_max_turn_counts=self.get_max_turn_counts,
+                         get_progressive_split_ranges=self.get_progressive_split_ranges,
+                         simulation_data = simulation_data)
 
         InterestModel.__init__(self, expl_dims)
         Observable.__init__(self)
+
+    def get_max_turn_counts(self):
+        return self.max_turn_counts
+
+    def get_progressive_split_ranges(self):
+        return self.progressive_split_ranges
 
     def get_data_x(self):
         return self.data_x
@@ -312,8 +321,9 @@ class Tree(Observable):
                  split_dim=0,
                  plot_objects=None,
                  interest_tree_rng=None,
-                 progressive_split_ranges=None,
-                 max_turn_counts=None,
+                 get_progressive_split_ranges=None,
+                 get_max_turn_counts = None,
+                 simulation_data=None
                  ):
 
         self.interest_tree_rng = interest_tree_rng
@@ -325,36 +335,52 @@ class Tree(Observable):
         self.get_data_nav_memory_map = get_data_nav_memory_map
         self.max_depth = max_depth
         self.split_mode = split_mode
-        self.progressive_split_ranges = progressive_split_ranges
         self.get_execution_iteration = get_execution_iteration
-        self.max_turn_counts = max_turn_counts
-        if progressive_split_ranges:
+        self.get_max_turn_counts = get_max_turn_counts
+        self.get_progressive_split_ranges = get_progressive_split_ranges
+        self.simulation_data = simulation_data
+        if get_progressive_split_ranges():
             # Need this to update so that when we delete a region it uses whatever the latest progressive splits value is
             # Accomplish this by dynamically calculating based on the number of 'x' values (actions) w.r.t the max # actions we will be taking
 
             # Use this to determine how many actions we have taken overall
             num_reached_sensory_effects = len(self.get_data_y()) if self.get_data_y() is not None else 0
-            progress_win_size_ranges = progressive_split_ranges['prog_win']
-            max_points_per_region_ranges = progressive_split_ranges['max_ppr']
+            progress_win_size_ranges = get_progressive_split_ranges()['prog_win']
+            max_points_per_region_ranges = get_progressive_split_ranges()['max_ppr']
 
             execution_iteration = self.get_execution_iteration()
             # There will always be at least 1 configuration for the ranges
             prog_win_min, prog_win_max = progress_win_size_ranges[0]
+            max_turn_count = get_max_turn_counts()[0] + 1 # + 1 because we complete all turns which means we need be able to index up to and including the last turn
+            if prog_win_min != prog_win_max:
+                progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, max_turn_count, endpoint=True, dtype=int)
+            else:
+                progress_win_size_distribution = [prog_win_min]*max_turn_count
+
             max_ppr_min, max_ppr_max = max_points_per_region_ranges[0]
-            max_turn_count = max_turn_counts[0] + 1 # + 1 because we complete all turns which means we need be able to index up to and including the last turn
-            progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, max_turn_count, endpoint=True, dtype=int)
-            max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, max_turn_count, endpoint=True, dtype=int)
+            if max_ppr_min != max_ppr_max:
+                max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, max_turn_count, endpoint=True, dtype=int)
+            else:
+                max_points_per_region_distribution = [max_ppr_min]*max_turn_count
+
             for i in range(1, execution_iteration+1): # for all prior iterations,
-                print(f"Prior iterations detected, using a modified distribution. If # iterations are greater than predefined configs, will use last value.")
+                # print(f"Prior iterations detected, using a modified distribution. If # iterations are greater than predefined configs, will use last value.")
+                max_turn_count = get_max_turn_counts()[i] if i < len(get_max_turn_counts()) else get_max_turn_counts()[-1]
                 prog_win_min, prog_win_max = progress_win_size_ranges[i] if i < len(progress_win_size_ranges) else progress_win_size_ranges[-1]
+                if prog_win_min != prog_win_max:
+                    iter_progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, max_turn_count, endpoint=True, dtype=int)
+                else:
+                    iter_progress_win_size_distribution = [prog_win_min] * max_turn_count
                 max_ppr_min, max_ppr_max = max_points_per_region_ranges[i] if i < len(max_points_per_region_ranges) else max_points_per_region_ranges[-1]
-                max_turn_count = max_turn_counts[i] if i < len(max_turn_counts) else max_turn_counts[-1]
-                iter_progress_win_size_distribution = np.geomspace(prog_win_min, prog_win_max, max_turn_count, endpoint=True, dtype=int)
-                iter_max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, max_turn_count, endpoint=True, dtype=int)
+                if max_ppr_min != max_ppr_max:
+                    iter_max_points_per_region_distribution = np.geomspace(max_ppr_min, max_ppr_max, max_turn_count, endpoint=True, dtype=int)
+                else:
+                    iter_max_points_per_region_distribution = [max_ppr_min] * max_turn_count
+
                 progress_win_size_distribution = np.concatenate([progress_win_size_distribution, iter_progress_win_size_distribution])
                 max_points_per_region_distribution =np.concatenate([max_points_per_region_distribution,iter_max_points_per_region_distribution])
-            print(f"max_points_per_region_distribution: {max_points_per_region_distribution}")
-            print(f"progress_win_size_distribution: {progress_win_size_distribution}")
+            # print(f"max_points_per_region_distribution: {max_points_per_region_distribution}")
+            # print(f"progress_win_size_distribution: {progress_win_size_distribution}")
 
             self.max_points_per_region = max_points_per_region_distribution[num_reached_sensory_effects]
             self.progress_win_size = progress_win_size_distribution[num_reached_sensory_effects]
@@ -615,40 +641,68 @@ class Tree(Observable):
 
         TODO: this is going to take forever unless I reduce search to the known bounds, even if the grid is currently for all possible actions
         """
-        if not self.can_sample:
-            return None
 
-        # Nav memory map stores x,y information for things in the space.
-        # Cozmo pose is x,y _in front of cozmo_ (not center of cozmo) so they tell rotational information as well.
-        # "The coordinate space is relative to Cozmo, where Cozmo's origin is the point on the ground between Cozmo's two front wheels"
-        # Since the robot understands position by monitoring its tread movement,
-        # it does not understand movement in the z axis. This means that the only
-        # applicable elements of pose in this situation are position.x position.y
-        # and rotation.angle_z.
-        # x,y are in mm it looks like. So measure mm of exploration space for min/max
+        if self.simulation_data is not None:
 
-        safe_coordinate_regions_in_bounds = self.get_safe_coordinates_within_region_bounds()
+            # min_bounds = self.bounds_x[0, :]
+            # max_bounds = self.bounds_x[1, :]
+            # # todo: de pose simulation data at the beginning when passing the huge list, instead of here.
+            # de_pose_simulation_data = np.array([[robot_pose.position.x, robot_pose.position.y,
+            #                                      robot_pose.rotation.angle_z.degrees] for robot_pose in self.simulation_data])
+            # mask = (de_pose_simulation_data[:, 0] >= min_bounds[0]) & (de_pose_simulation_data[:, 0] <= max_bounds[0]) & \
+            #        (de_pose_simulation_data[:, 1] >= min_bounds[1]) & (de_pose_simulation_data[:, 1] <= max_bounds[1])
+            # in_bounds = de_pose_simulation_data[mask]
 
-        # if there are no safe coordinate regions in bounds, then we cannot sample this region
-        if len(safe_coordinate_regions_in_bounds) == 0:
-            self.can_sample = False
             min_bounds = self.bounds_x[0, :]
             max_bounds = self.bounds_x[1, :]
-            print(f"No safe coordinates in bounds (dimension {self.split_dim} min: {min_bounds} max: {max_bounds})!")
-            return None
+            mask = (self.simulation_data[:, 0] >= min_bounds[0]) & (self.simulation_data[:, 0] <= max_bounds[0]) & \
+                   (self.simulation_data[:, 1] >= min_bounds[1]) & (self.simulation_data[:, 1] <= max_bounds[1])
+            in_bounds = self.simulation_data[mask]
 
-        # pick a random safe Nav Mem Map leaf to sample a single coordinate from
-        random_safe_leaf = random.choice(safe_coordinate_regions_in_bounds)
-        random_safe_leaf_min_max_diff = random_safe_leaf[1, :] - random_safe_leaf[0, :]
-        random_in_diff = random_safe_leaf_min_max_diff * np.random.rand(1, random_safe_leaf.shape[1])
-        # add the min safe coordinate back to the random difference to get a final random safe coordinate within the bounds
-        random_safe_coordinate =  random_in_diff + random_safe_leaf[0, :]
+            if len(in_bounds) > 0:
+                random_point = in_bounds[np.random.choice(len(in_bounds), replace=True)]
+                print("Random Point:", random_point)
+                # return [round(random_point[0], 5), round(random_point[1], 5), round(random_point[2], 5)]
+                return random_point
+            else:
+                print("No points found in bounds.")
+                return None # Should go up a layer to the parent region and try sampling again
 
-        # Sample a random point in region bounds to get a rotation (and any other dimensions of motor action that weren't restricted
-        # by safe spaces in the NavMemMap) to add to the bounded motor action sampled from the Nav Memory Map
-        rand_sample_in_region_bounds = rand_bounds(self.bounds_x).flatten()
-        random_safe_coordinate_with_rotation = np.append(random_safe_coordinate, (rand_sample_in_region_bounds[2:]))
-        return random_safe_coordinate_with_rotation
+        else:
+            if not self.can_sample:
+                return None
+
+            # Nav memory map stores x,y information for things in the space.
+            # Cozmo pose is x,y _in front of cozmo_ (not center of cozmo) so they tell rotational information as well.
+            # "The coordinate space is relative to Cozmo, where Cozmo's origin is the point on the ground between Cozmo's two front wheels"
+            # Since the robot understands position by monitoring its tread movement,
+            # it does not understand movement in the z axis. This means that the only
+            # applicable elements of pose in this situation are position.x position.y
+            # and rotation.angle_z.
+            # x,y are in mm it looks like. So measure mm of exploration space for min/max
+
+            safe_coordinate_regions_in_bounds = self.get_safe_coordinates_within_region_bounds()
+
+            # if there are no safe coordinate regions in bounds, then we cannot sample this region
+            if len(safe_coordinate_regions_in_bounds) == 0:
+                self.can_sample = False
+                min_bounds = self.bounds_x[0, :]
+                max_bounds = self.bounds_x[1, :]
+                print(f"No safe coordinates in bounds (dimension {self.split_dim} min: {min_bounds} max: {max_bounds})!")
+                return None
+
+            # pick a random safe Nav Mem Map leaf to sample a single coordinate from
+            random_safe_leaf = random.choice(safe_coordinate_regions_in_bounds)
+            random_safe_leaf_min_max_diff = random_safe_leaf[1, :] - random_safe_leaf[0, :]
+            random_in_diff = random_safe_leaf_min_max_diff * np.random.rand(1, random_safe_leaf.shape[1])
+            # add the min safe coordinate back to the random difference to get a final random safe coordinate within the bounds
+            random_safe_coordinate =  random_in_diff + random_safe_leaf[0, :]
+
+            # Sample a random point in region bounds to get a rotation (and any other dimensions of motor action that weren't restricted
+            # by safe spaces in the NavMemMap) to add to the bounded motor action sampled from the Nav Memory Map
+            rand_sample_in_region_bounds = rand_bounds(self.bounds_x).flatten()
+            random_safe_coordinate_with_rotation = np.append(random_safe_coordinate, (rand_sample_in_region_bounds[2:]))
+            return random_safe_coordinate_with_rotation
 
     def sample_bounds_exclude_objects(self):
         s = rand_bounds(self.bounds_x).flatten()
@@ -821,6 +875,8 @@ class Tree(Observable):
     def progress_idxs(self, idxs):
         """
         Competence progress on points of given indexes. (higher competence is better, lower prediction error the better)
+
+        deriv in this case is rate-of-change
 
         """
         if self.progress_measure == 'abs_deriv_cov':
@@ -1065,9 +1121,10 @@ class Tree(Observable):
                           idxs = lower_idx,
                           split_dim = split_dim,
                           interest_tree_rng=self.interest_tree_rng,
-                          progressive_split_ranges=self.progressive_split_ranges,
-                          max_turn_counts=self.max_turn_counts,
-                          get_execution_iteration=self.get_execution_iteration)
+                          get_progressive_split_ranges=self.get_progressive_split_ranges,
+                          get_max_turn_counts=self.get_max_turn_counts,
+                          get_execution_iteration=self.get_execution_iteration,
+                          simulation_data=self.simulation_data)
 
         self.greater = Tree(get_data_x=self.get_data_x,
                             bounds_x=g_bounds_x,
@@ -1084,9 +1141,10 @@ class Tree(Observable):
                             idxs = greater_idx,
                             split_dim = split_dim,
                             interest_tree_rng=self.interest_tree_rng,
-                            progressive_split_ranges=self.progressive_split_ranges,
-                            max_turn_counts=self.max_turn_counts,
-                            get_execution_iteration=self.get_execution_iteration)
+                            get_progressive_split_ranges=self.get_progressive_split_ranges,
+                            get_max_turn_counts=self.get_max_turn_counts,
+                            get_execution_iteration=self.get_execution_iteration,
+                            simulation_data=self.simulation_data)
 
 
     def calc_tree_variance_of_cos_sims(self, tree_sensory):
@@ -1858,10 +1916,10 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                  'multiscale':False,
                                                                  'volume':False},
                                                'plot_objects': None,
-                                               'region_deletion_alphas':[(0.3, 0.2), (0.3, 0.2), (0.2, 0.15), (0.1, 0.1)],
-                                               'max_turn_counts': [45, 45, 20, 20], # 1st execution, all future executions
-                                               'progressive_split_ranges': {'max_ppr': [(8, 15), (8, 15), (15,20), (20,20)],
-                                                                            'prog_win': [(8, 8)]},
+                                               'region_deletion_alphas':[(0, 0), (0.5, 0.1), (0.3, 0.2)],
+                                               'max_turn_counts': [65, 45, 20], # 1st execution, all future executions
+                                               'progressive_split_ranges': {'max_ppr': [(65, 65), (10,20), (20,20)],
+                                                                            'prog_win': [(1, 1), (4, 8), (8,8)]},
                                            },
                                            'cozmo_clip_cos_sim_split_progressive_splits_epsilon_greedy_sampling_new_learning_potential_calculation_smaller_initial_execution': {
                                                'max_depth': 100,
