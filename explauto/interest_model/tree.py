@@ -786,7 +786,12 @@ class Tree(Observable):
         epsilon : float
 
         """
-        if epsilon > np.random.random():
+        iteration_epsilon = epsilon
+        if isinstance(epsilon, list):
+            execution_iteration = self.get_execution_iteration()
+            iteration_epsilon = epsilon[execution_iteration] if execution_iteration < len(epsilon) else epsilon[-1]
+
+        if iteration_epsilon > np.random.random():
             sampling_mode = copy.deepcopy(self.sampling_mode)  # This was updating the class instance because reference
             sampling_mode['mode'] = 'random'
             self.emit('sample', 'sampling random')
@@ -1912,7 +1917,7 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                'competence_measure': competence_cos_dist_exp,
                                                'progress_measure': 'idk',
                                                'sampling_mode': {'mode':'epsilon_greedy',
-                                                                 'param':0.1,
+                                                                 'param':[0.8, 0.2, 0.1],
                                                                  'multiscale':False,
                                                                  'volume':False},
                                                'plot_objects': None,
