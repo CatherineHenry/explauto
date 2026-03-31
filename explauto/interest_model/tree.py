@@ -1919,12 +1919,12 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                'sampling_mode': {'mode':'epsilon_greedy',
                                                                  'param':[0.8, 0.2, 0.1],
                                                                  'multiscale':False,
-                                                                 'volume':False},
+                                                                 'volume':True},
                                                'plot_objects': None,
                                                'region_deletion_alphas':[(0, 0), (0.5, 0.1), (0.3, 0.2)],
-                                               'max_turn_counts': [65, 45, 20], # 1st execution, all future executions
-                                               'progressive_split_ranges': {'max_ppr': [(65, 65), (10,20), (20,20)],
-                                                                            'prog_win': [(1, 1), (4, 8), (8,8)]},
+                                               'max_turn_counts': [45, 65, 20], # 1st execution, all future executions
+                                               'progressive_split_ranges': {'max_ppr': [(8, 8), (10,20), (20,20)],
+                                                                            'prog_win': [(5, 5), (5, 10), (10,10)]},
                                            },
                                            'cozmo_clip_cos_sim_split_progressive_splits_epsilon_greedy_sampling_new_learning_potential_calculation_smaller_initial_execution': {
                                                'max_depth': 100,
