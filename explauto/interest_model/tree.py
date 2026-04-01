@@ -935,17 +935,19 @@ class Tree(Observable):
                 dary = np.array([*map(float, idxs_competencies)])
                 dary -= np.average(dary)
 
-                step = np.hstack((np.ones(len(dary)), 0*np.ones(len(dary))))
+                step = np.hstack((np.ones(len(dary)), -1*np.ones(len(dary))))
 
                 dary_step = np.convolve(dary, step, mode='valid')
 
                 # avg_convolution = np.abs(np.mean(dary_step))
-                comp_beg = np.mean(dary_step[:int(float(len(dary_step))/2.)])
-                comp_end = np.mean(idxs_competencies[int(float(len(dary_step))/2.):])
+                # comp_beg = np.mean(dary_step[:int(float(len(dary_step))/2.)])
+                # comp_end = np.mean(idxs_competencies[int(float(len(dary_step))/2.):])
                 # print(f"convolve: {np.convolve(comp_beg, comp_end)}")
-                deriv = 1 - np.abs(comp_end - comp_beg)
-
+                # deriv = 1 - np.abs(comp_end - comp_beg)
+                deriv = np.mean(abs(dary_step))
+                print(f"Learning potential is {deriv} for competencies {idxs_competencies}")
                 return deriv
+
         else:
             raise NotImplementedError(self.progress_measure)
 
@@ -1087,7 +1089,9 @@ class Tree(Observable):
                 #                                                             greater_cos_sims_variance)
 
                 # splits_fitness[i] = len(lower_idx) * len(greater_idx) * (1 / (lower_cos_sims_variance + greater_cos_sims_variance))  # penalize large variance by dividing by sum. Multiply by len of each list to maximize more even splits
-                splits_fitness[i] = (1 / (lower_cos_sims_variance + greater_cos_sims_variance))  # penalize large variance by dividing by sum. Multiply by len of each list to maximize more even splits
+                with np.errstate(divide='ignore'):
+                    # variance can be 0, if so numpy divide will return infinity which works as expected with argmax selection
+                    splits_fitness[i] = (1 / (lower_cos_sims_variance + greater_cos_sims_variance))
             print(f"Splits fitness: {splits_fitness}")
             split_value = splits[np.argmax(splits_fitness)]
             print(f"Using idx {np.argmax(splits_fitness)} resulting in split value {split_value}")
@@ -1155,7 +1159,9 @@ class Tree(Observable):
     def calc_tree_variance_of_cos_sims(self, tree_sensory):
         if len(tree_sensory) < 3:
             print("Should not be evaluating splits with fewer than 3 data points")
-            return 0.001 # make it incredibly unlikely the split is selected
+            # make it incredibly unlikely the split is selected by marking as high variance
+            # (we prioritize splits with low variance on either side)
+            return 1
         XA = tree_sensory
         XB = tree_sensory
         cos_sims = cosine_similarity(XA, XB)
@@ -1164,6 +1170,7 @@ class Tree(Observable):
         # print(cos_sims[upper_triangle_indices])
         only_unique_combinations = cos_sims[upper_triangle_indices].flatten()
         cos_sims_variance = np.var(only_unique_combinations) # if there is only one value, variance is not very meaningful
+        # print(f"Cos sim variances: {cos_sims_variance} of Cos sin: {only_unique_combinations}")
         return cos_sims_variance
     
     # Adapted from scipy.spatial.kdtree
@@ -1917,14 +1924,20 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                'competence_measure': competence_cos_dist_exp,
                                                'progress_measure': 'idk',
                                                'sampling_mode': {'mode':'epsilon_greedy',
-                                                                 'param':[0.8, 0.2, 0.1],
+                                                                 'param':[0.8, 0.3, 0.1],
                                                                  'multiscale':False,
                                                                  'volume':True},
                                                'plot_objects': None,
-                                               'region_deletion_alphas':[(0, 0), (0.5, 0.1), (0.3, 0.2)],
-                                               'max_turn_counts': [45, 65, 20], # 1st execution, all future executions
-                                               'progressive_split_ranges': {'max_ppr': [(8, 8), (10,20), (20,20)],
+                                               'region_deletion_alphas':[(0, 0), (0.5, 0.2), (0.3, 0.2)],
+                                               # 'region_deletion_alphas':[(0, 0), (0.5, 0.1), (0.3, 0.2)],
+                                               'max_turn_counts': [60, 60, 40], # 1st execution, all future executions. # 60 moves is about the max cozmo can do with long distances
+                                               # 'max_turn_counts': [65, 45, 20], # 1st execution, all future executions
+                                               'progressive_split_ranges': {'max_ppr': [(8, 8), (8,20), (20,20)],
+                                                                            # 'progressive_split_ranges': {'max_ppr': [(65, 65), (10,20), (20,20)],
                                                                             'prog_win': [(5, 5), (5, 10), (10,10)]},
+                                                                            # 'prog_win': [(1, 1), (4, 8), (8,8)]},
+
+
                                            },
                                            'cozmo_clip_cos_sim_split_progressive_splits_epsilon_greedy_sampling_new_learning_potential_calculation_smaller_initial_execution': {
                                                'max_depth': 100,
@@ -1958,6 +1971,20 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                            'cozmo_clip_random_splits_random_sampling_new_learning_potential_calculation': {
                                                'max_depth': 100,
                                                'split_mode': 'none',
+                                               'competence_measure': competence_cos_dist_exp,
+                                               'progress_measure': 'idk',
+                                               'sampling_mode': {'mode':'random',
+                                                                 'multiscale':False, # Should be true random because can select from all nodes of the tree
+                                                                 'volume':False},
+                                               'plot_objects': None,
+                                               'region_deletion_alphas':[(0,0)],
+                                               'max_turn_counts': [60, 60, 40], # 1st execution, all future executions
+                                               'progressive_split_ranges': {'max_ppr': [(0, 0)],
+                                                                            'prog_win': [(0, 0)]},
+                                           },
+                                           'cozmo_clip_no_splits_random_sampling_new_learning_potential_calculation': {
+                                               'max_depth': 100,
+                                               'split_mode': 'random',
                                                'competence_measure': competence_cos_dist_exp,
                                                'progress_measure': 'idk',
                                                'sampling_mode': {'mode':'random',
