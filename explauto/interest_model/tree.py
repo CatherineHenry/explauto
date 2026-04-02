@@ -940,7 +940,7 @@ class Tree(Observable):
                 idxs_competencies = self.get_data_c()[idxs]
 
                 dary = np.array([*map(float, idxs_competencies)])
-                dary -= np.average(dary)
+                dary -= np.average(dary) # center at zero
 
                 step = np.hstack((np.ones(len(dary)), -1*np.ones(len(dary))))
 
@@ -948,7 +948,7 @@ class Tree(Observable):
 
                 # avg_convolution = np.abs(np.mean(dary_step))
                 # comp_beg = np.mean(dary_step[:int(float(len(dary_step))/2.)])
-                # comp_end = np.mean(idxs_competencies[int(float(len(dary_step))/2.):])
+                # comp_end = np.mean(dary_step[int(float(len(dary_step))/2.):])
                 # print(f"convolve: {np.convolve(comp_beg, comp_end)}")
                 # deriv = 1 - np.abs(comp_end - comp_beg)
                 deriv = np.mean(abs(dary_step))
