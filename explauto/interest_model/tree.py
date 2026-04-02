@@ -76,6 +76,7 @@ class InterestTree(InterestModel, Observable):
         self.data_flow_uuid = None # list of flow ids
         self.max_turn_counts = max_turn_counts
         self.progressive_split_ranges = progressive_split_ranges
+        self.simulation_data = simulation_data
         self.tree = Tree(get_data_x=self.get_data_x,
                          bounds_x=np.array(self.bounds, dtype=float),
                          get_data_y=self.get_data_y,
@@ -94,7 +95,7 @@ class InterestTree(InterestModel, Observable):
                          get_execution_iteration=self.get_execution_iteration,
                          get_max_turn_counts=self.get_max_turn_counts,
                          get_progressive_split_ranges=self.get_progressive_split_ranges,
-                         simulation_data = simulation_data)
+                         get_simulation_data = self.get_simulation_data)
 
         InterestModel.__init__(self, expl_dims)
         Observable.__init__(self)
@@ -104,6 +105,9 @@ class InterestTree(InterestModel, Observable):
 
     def get_progressive_split_ranges(self):
         return self.progressive_split_ranges
+
+    def get_simulation_data(self):
+        return self.simulation_data
 
     def get_data_x(self):
         return self.data_x
@@ -323,7 +327,7 @@ class Tree(Observable):
                  interest_tree_rng=None,
                  get_progressive_split_ranges=None,
                  get_max_turn_counts = None,
-                 simulation_data=None
+                 get_simulation_data=None
                  ):
 
         self.interest_tree_rng = interest_tree_rng
@@ -338,7 +342,7 @@ class Tree(Observable):
         self.get_execution_iteration = get_execution_iteration
         self.get_max_turn_counts = get_max_turn_counts
         self.get_progressive_split_ranges = get_progressive_split_ranges
-        self.simulation_data = simulation_data
+        self.get_simulation_data = get_simulation_data
         if get_progressive_split_ranges():
             # Need this to update so that when we delete a region it uses whatever the latest progressive splits value is
             # Accomplish this by dynamically calculating based on the number of 'x' values (actions) w.r.t the max # actions we will be taking
@@ -642,7 +646,7 @@ class Tree(Observable):
         TODO: this is going to take forever unless I reduce search to the known bounds, even if the grid is currently for all possible actions
         """
 
-        if self.simulation_data is not None:
+        if self.get_simulation_data() is not None:
 
             # min_bounds = self.bounds_x[0, :]
             # max_bounds = self.bounds_x[1, :]
@@ -655,9 +659,10 @@ class Tree(Observable):
 
             min_bounds = self.bounds_x[0, :]
             max_bounds = self.bounds_x[1, :]
-            mask = (self.simulation_data[:, 0] >= min_bounds[0]) & (self.simulation_data[:, 0] <= max_bounds[0]) & \
-                   (self.simulation_data[:, 1] >= min_bounds[1]) & (self.simulation_data[:, 1] <= max_bounds[1])
-            in_bounds = self.simulation_data[mask]
+            simulation_data = self.get_simulation_data()
+            mask = (simulation_data[:, 0] >= min_bounds[0]) & (simulation_data[:, 0] <= max_bounds[0]) & \
+                   (simulation_data[:, 1] >= min_bounds[1]) & (simulation_data[:, 1] <= max_bounds[1])
+            in_bounds = simulation_data[mask]
 
             if len(in_bounds) > 0:
                 random_point = in_bounds[np.random.choice(len(in_bounds), replace=True)]
@@ -1133,7 +1138,7 @@ class Tree(Observable):
                           get_progressive_split_ranges=self.get_progressive_split_ranges,
                           get_max_turn_counts=self.get_max_turn_counts,
                           get_execution_iteration=self.get_execution_iteration,
-                          simulation_data=self.simulation_data)
+                          get_simulation_data=self.get_simulation_data)
 
         self.greater = Tree(get_data_x=self.get_data_x,
                             bounds_x=g_bounds_x,
@@ -1153,7 +1158,7 @@ class Tree(Observable):
                             get_progressive_split_ranges=self.get_progressive_split_ranges,
                             get_max_turn_counts=self.get_max_turn_counts,
                             get_execution_iteration=self.get_execution_iteration,
-                            simulation_data=self.simulation_data)
+                            get_simulation_data=self.get_simulation_data)
 
 
     def calc_tree_variance_of_cos_sims(self, tree_sensory):
