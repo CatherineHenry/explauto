@@ -1935,13 +1935,13 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                  'multiscale':False,
                                                                  'volume':True},
                                                'plot_objects': None,
-                                               'region_deletion_alphas':[(0, 0), (0.5, 0.2), (0.3, 0.2)],
+                                               'region_deletion_alphas':[(0, 0), (0.5, 0.2), (0.5, 0.2), (0.3, 0.2)],
                                                # 'region_deletion_alphas':[(0, 0), (0.5, 0.1), (0.3, 0.2)],
-                                               'max_turn_counts': [60, 60, 40], # 1st execution, all future executions. # 60 moves is about the max cozmo can do with long distances
+                                               'max_turn_counts': [60, 60, 60, 40], # 1st execution, all future executions. # 60 moves is about the max cozmo can do with long distances
                                                # 'max_turn_counts': [65, 45, 20], # 1st execution, all future executions
-                                               'progressive_split_ranges': {'max_ppr': [(8, 8), (8,20), (20,20)],
+                                               'progressive_split_ranges': {'max_ppr': [(8, 8), (8,25), (25,10), (10,10)],
                                                                             # 'progressive_split_ranges': {'max_ppr': [(65, 65), (10,20), (20,20)],
-                                                                            'prog_win': [(5, 5), (5, 10), (10,10)]},
+                                                                            'prog_win': [(5, 5), (5, 10), (10,6), (6, 6)]},
                                                                             # 'prog_win': [(1, 1), (4, 8), (8,8)]},
 
 
