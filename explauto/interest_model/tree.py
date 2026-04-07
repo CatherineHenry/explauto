@@ -722,7 +722,12 @@ class Tree(Observable):
         Sample a point in a random leaf.
 
         """
-        if self.sampling_mode['volume']:
+        iteration_sampling_weighted_by_volume = self.get_sampling_mode()['volume']
+        if isinstance(iteration_sampling_weighted_by_volume, list):
+            execution_iteration = self.get_execution_iteration()
+            iteration_sampling_weighted_by_volume = iteration_sampling_weighted_by_volume[execution_iteration] if execution_iteration < len(iteration_sampling_weighted_by_volume) else iteration_sampling_weighted_by_volume[-1]
+        print(f"Sample random weighted by volume: {iteration_sampling_weighted_by_volume}")
+        if iteration_sampling_weighted_by_volume:
             # Choose a leaf weighted by volume, randomly
             if self.leafnode:
                 return self.sample_bounds()
@@ -831,7 +836,12 @@ class Tree(Observable):
             else:
                 nodes = self.get_leaves()
 
-            if  self.sampling_mode['volume']:
+            iteration_sampling_weighted_by_volume = self.get_sampling_mode()['volume']
+            if isinstance(iteration_sampling_weighted_by_volume, list):
+                execution_iteration = self.get_execution_iteration()
+                iteration_sampling_weighted_by_volume = iteration_sampling_weighted_by_volume[execution_iteration] if execution_iteration < len(iteration_sampling_weighted_by_volume) else iteration_sampling_weighted_by_volume[-1]
+
+            if  iteration_sampling_weighted_by_volume:
                 progresses = np.array([node.progress*node.volume for node in nodes]) #by volume
             else:
                 progresses = np.array([node.progress for node in nodes])
@@ -2005,6 +2015,26 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                'max_turn_counts': [45, 45, 20, 20], # 1st execution, all future executions
                                                'progressive_split_ranges': {'max_ppr': [(8, 15), (8, 15), (15,20), (20,20)],
                                                                             'prog_win': [(8, 8)]},
+                                           },
+                                           'wip': {
+                                               'max_depth': 100,
+                                               'split_mode': 'variance_of_cos_sim',
+                                               'competence_measure': competence_cos_dist_exp,
+                                               'progress_measure': 'idk',
+                                               'sampling_mode': {'mode':'epsilon_greedy',
+                                                                 'param':[1, 0.5, 0.1],
+                                                                 'multiscale':False,
+                                                                 # 'volume':True},
+                                                                 'volume':[True, True, False]},
+                                               'plot_objects': None,
+                                               'region_deletion_alphas':[(1, 1)],
+                                               # 'region_deletion_alphas':[(0, 0), (0.5, 0.1), (0.3, 0.2)],
+                                               'max_turn_counts': [40], # 1st execution, all future executions. # 60 moves is about the max cozmo can do with long distances
+                                               # 'max_turn_counts': [65, 45, 20], # 1st execution, all future executions
+                                               'progressive_split_ranges': {'max_ppr': [(10, 10)],
+                                                                            # 'progressive_split_ranges': {'max_ppr': [(65, 65), (10,20), (20,20)],
+                                                                            'prog_win': [(3, 3)]},
+                                               # 'prog_win': [(1, 1), (4, 8), (8,8)]},
                                            },
                                            })}
 
