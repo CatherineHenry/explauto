@@ -73,6 +73,8 @@ class InterestTree(InterestModel, Observable):
         self.data_y = None # list of reached sensory effect
         self.data_c = None # list of competence measures
         self.data_nav_memory_map = None # list of navigation memory maps
+        self.safe_coordinate_regions = None
+        self.unsafe_coordinate_regions = None
         self.data_flow_uuid = None # list of flow ids
         self.max_turn_counts = max_turn_counts
         self.progressive_split_ranges = progressive_split_ranges
@@ -95,7 +97,9 @@ class InterestTree(InterestModel, Observable):
                          get_execution_iteration=self.get_execution_iteration,
                          get_max_turn_counts=self.get_max_turn_counts,
                          get_progressive_split_ranges=self.get_progressive_split_ranges,
-                         get_simulation_data = self.get_simulation_data)
+                         get_simulation_data = self.get_simulation_data,
+                         get_safe_coordinate_regions = self.get_safe_coordinate_regions,
+                         get_unsafe_coordinate_regions = self.get_safe_coordinate_regions)
 
         InterestModel.__init__(self, expl_dims)
         Observable.__init__(self)
@@ -145,6 +149,12 @@ class InterestTree(InterestModel, Observable):
     def get_data_nav_memory_map(self):
         return self.data_nav_memory_map
 
+    def get_safe_coordinate_regions(self):
+        return self.safe_coordinate_regions
+
+    def get_unsafe_coordinate_regions(self):
+        return self.unsafe_coordinate_regions
+
     def sample(self):
         # TODO: if it can't find a single node to sample that has free points then the program should end
         sampled_points = self.tree.sample()
@@ -193,7 +203,20 @@ class InterestTree(InterestModel, Observable):
                 pathing.append(f"greater (density: {tree.greater.density()})")
             return self.random_walk_region_deletion(tree.greater, pathing, probability_of_region_deletion)
 
-    def update(self, xy, ms, flow_uuid=None, nav_memory_map=None):
+    def update_nav_memory_map(self,  nav_memory_map=None):
+        if self.data_nav_memory_map is None: # keep track of flow uuids for training WAC classifier later (simplifies syncing the data for each subspace)
+            self.data_nav_memory_map = np.array([nav_memory_map])
+        else:
+            self.data_nav_memory_map = np.append(self.data_nav_memory_map, np.array([nav_memory_map]), axis=0)
+        if  self.get_simulation_data() is None: # only calculate if simulation data isn't set
+            safe_coordinate_regions = []
+            unsafe_coordinate_regions = []
+            nav_memory_map.quad_tree_safe_and_unsafe_coordinates(nav_memory_map.root_node, safe_coordinate_regions, unsafe_coordinate_regions)
+            self.safe_coordinate_regions = safe_coordinate_regions
+            self.unsafe_coordinate_regions = unsafe_coordinate_regions
+
+
+    def update(self, xy, ms, flow_uuid=None):
         """
         data_x will be either the motor vector or sensory vector depending on exploration dimensions.
         :param xy: Target SM Space (concat Motor x Sensory vectors)
@@ -228,11 +251,6 @@ class InterestTree(InterestModel, Observable):
             self.data_flow_uuid = np.array([flow_uuid])
         else:
             self.data_flow_uuid = np.append(self.data_flow_uuid, np.array([flow_uuid]), axis=0)
-
-        if self.data_nav_memory_map is None: # keep track of flow uuids for training WAC classifier later (simplifies syncing the data for each subspace)
-            self.data_nav_memory_map = np.array([nav_memory_map])
-        else:
-            self.data_nav_memory_map = np.append(self.data_nav_memory_map, np.array([nav_memory_map]), axis=0)
 
         if self.region_deletion_alphas is not None:
             execution_iteration = self.get_execution_iteration()
@@ -330,7 +348,9 @@ class Tree(Observable):
                  interest_tree_rng=None,
                  get_progressive_split_ranges=None,
                  get_max_turn_counts = None,
-                 get_simulation_data=None
+                 get_simulation_data=None,
+                 get_safe_coordinate_regions=None,
+                 get_unsafe_coordinate_regions=None
                  ):
 
         self.interest_tree_rng = interest_tree_rng
@@ -346,6 +366,8 @@ class Tree(Observable):
         self.get_max_turn_counts = get_max_turn_counts
         self.get_progressive_split_ranges = get_progressive_split_ranges
         self.get_simulation_data = get_simulation_data
+        self.get_safe_coordinate_regions = get_safe_coordinate_regions
+        self.get_unsafe_coordinate_regions = get_unsafe_coordinate_regions
         if get_progressive_split_ranges():
             # Need this to update so that when we delete a region it uses whatever the latest progressive splits value is
             # Accomplish this by dynamically calculating based on the number of 'x' values (actions) w.r.t the max # actions we will be taking
@@ -490,11 +512,8 @@ class Tree(Observable):
 
     def get_safe_coordinates_within_region_bounds(self):
         # Get the coordinates of all the leaf nodes that are safe (object/cliff/edge free) from the  Nav Mem Map
-        safe_coordinate_regions = []
-        unsafe_coordinate_regions = []
-        latest_nav_map = self.get_data_nav_memory_map()[-1]
-
-        latest_nav_map.quad_tree_safe_and_unsafe_coordinates(latest_nav_map.root_node, safe_coordinate_regions, unsafe_coordinate_regions)
+        safe_coordinate_regions = self.get_safe_coordinate_regions()
+        unsafe_coordinate_regions = self.get_unsafe_coordinate_regions()
 
         # pad unsafe coordinate regions so they have a border large enough to prevent selecting an action that would result in robot collision
         # It appears if a pose is selected where the robot would overlap/collide with the object, path planning is cancelled and shortest path is used
@@ -1154,7 +1173,9 @@ class Tree(Observable):
                           get_progressive_split_ranges=self.get_progressive_split_ranges,
                           get_max_turn_counts=self.get_max_turn_counts,
                           get_execution_iteration=self.get_execution_iteration,
-                          get_simulation_data=self.get_simulation_data)
+                          get_simulation_data=self.get_simulation_data,
+                          get_safe_coordinate_regions = self.get_safe_coordinate_regions,
+                          get_unsafe_coordinate_regions = self.get_safe_coordinate_regions)
 
         self.greater = Tree(get_data_x=self.get_data_x,
                             bounds_x=g_bounds_x,
@@ -1174,7 +1195,9 @@ class Tree(Observable):
                             get_progressive_split_ranges=self.get_progressive_split_ranges,
                             get_max_turn_counts=self.get_max_turn_counts,
                             get_execution_iteration=self.get_execution_iteration,
-                            get_simulation_data=self.get_simulation_data)
+                            get_simulation_data=self.get_simulation_data,
+                            get_safe_coordinate_regions = self.get_safe_coordinate_regions,
+                            get_unsafe_coordinate_regions = self.get_safe_coordinate_regions)
 
 
     def calc_tree_variance_of_cos_sims(self, tree_sensory):

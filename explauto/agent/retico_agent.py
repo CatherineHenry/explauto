@@ -176,7 +176,7 @@ class ReticoAgent(Observable):
         return movement
 
 
-    def perceive(self, s_, context=None, flow_uuid=None, nav_memory_map=None):
+    def perceive(self, s_, context=None, flow_uuid=None):
         """ Learning (see the `Explauto introduction <about.html>`__ for more detail):
 
         * update the sensorimotor model with (m, s)
@@ -187,7 +187,7 @@ class ReticoAgent(Observable):
         self.emit(f'[{flow_uuid}] perception', list(s))
         if context is None:                
             self.sensorimotor_model.update(self.m, s)
-            self.interest_model.update(np.hstack((self.m, self.s)), np.hstack((self.m, s)), flow_uuid=flow_uuid, nav_memory_map=nav_memory_map)
+            self.interest_model.update(np.hstack((self.m, self.s)), np.hstack((self.m, s)), flow_uuid=flow_uuid)
             # if self.save_data and self.n_perceived > 0 and self.n_perceived % 5 == 0:  # Every 5 perceived
             if self.save_data and self.n_perceived > 0:  # Every perceived
                 pickle_thread = threading.Thread(
