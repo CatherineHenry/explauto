@@ -902,8 +902,9 @@ class Tree(Observable):
         deriv in this case is rate-of-change
 
         """
-        if self.split_mode == "none": # If we aren't splitting, don't bother calculating learning potential
+        if self.progress_measure == "none": # If we aren't splitting, don't bother calculating learning potential
             return 0
+
         if self.progress_measure == 'abs_deriv_cov':
             #  approach from explauto's discrete progress interest model
             if len(idxs) <= 1:
