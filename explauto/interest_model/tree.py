@@ -1108,10 +1108,10 @@ class Tree(Observable):
                 # splits_fitness[i] = len(lower_idx) * len(greater_idx) * abs(lower_cos_sims_variance -
                 #                                                             greater_cos_sims_variance)
 
-                # splits_fitness[i] = len(lower_idx) * len(greater_idx) * (1 / (lower_cos_sims_variance + greater_cos_sims_variance))  # penalize large variance by dividing by sum. Multiply by len of each list to maximize more even splits
                 with np.errstate(divide='ignore'):
                     # variance can be 0, if so numpy divide will return infinity which works as expected with argmax selection
-                    splits_fitness[i] = (1 / (lower_cos_sims_variance + greater_cos_sims_variance))
+                    splits_fitness[i] = len(lower_idx) * len(greater_idx) * (1 / (lower_cos_sims_variance + greater_cos_sims_variance))  # penalize large variance by dividing by sum. Multiply by len of each list to maximize more even splits
+                    # splits_fitness[i] = (1 / (lower_cos_sims_variance + greater_cos_sims_variance))
             print(f"Splits fitness: {splits_fitness}")
             split_value = splits[np.argmax(splits_fitness)]
             print(f"Using idx {np.argmax(splits_fitness)} resulting in split value {split_value}")
