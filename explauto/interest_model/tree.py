@@ -428,8 +428,8 @@ class Tree(Observable):
 
         """
         # Inline functions here best aligns with original implementation using lambda, and allows for sharing the fold_up function, but there is probably a better way
-        def add_lower_and_greater_with_parent(fl, fg):
-            return [self] + fl + fg
+        def add_lower_and_greater_with_parent(f, fl, fg):
+            return [f] + fl + fg
 
         def leaf_as_list(leaf):
             return [leaf]
@@ -443,7 +443,7 @@ class Tree(Observable):
         """
 
         # Inline functions here best aligns with original implementation using lambda, and allows for sharing the fold_up function, but there is probably a better way
-        def add_lower_and_greater(fl, fg):
+        def add_lower_and_greater(f, fl, fg):
             return fl + fg
 
         def leaf_as_list(leaf):
@@ -1380,19 +1380,22 @@ class Tree(Observable):
 
     def fold_up(self, f_inter, f_leaf):
         """
-        Apply recursively the function f_inter from leaves to root, begining with function f_leaf on leaves.
+        Apply recursively the function f_inter from leaves to root, beginning with function f_leaf on leaves.
 
         """
-        return f_leaf(self) if self.leafnode else f_inter(self.lower.fold_up(f_inter, f_leaf),
+
+        return f_leaf(self) if self.leafnode else f_inter(self,
+                                                          self.lower.fold_up(f_inter, f_leaf),
                                                           self.greater.fold_up(f_inter, f_leaf))
 
 
     def fold_up_sampleable(self, f_inter, f_leaf):
         """
-        Apply recursively the function f_inter from leaves to root, begining with function f_leaf on leaves.
+        Apply recursively the function f_inter from leaves to root, beginning with function f_leaf on leaves.
 
         """
-        return f_leaf(self) if self.leafnode and self.can_sample else f_inter(self.lower.fold_up(f_inter, f_leaf),
+        return f_leaf(self) if self.leafnode and self.can_sample else f_inter(self,
+                                                                              self.lower.fold_up(f_inter, f_leaf),
                                                                               self.greater.fold_up(f_inter, f_leaf))
 
     def plot(self, ax=None, ax2=None, scatter=True, grid=True, progress_colors=True, progress_max=1., depth=100, plot_dims=[0,1], legend_artists=None, cmap=None):
