@@ -53,7 +53,7 @@ class InterestTree(InterestModel, Observable):
         self.conf = conf
         self.bounds = self.conf.bounds[:, expl_dims]
         self.competence_measure = competence_measure
-
+        self.sampling_mode = sampling_mode
         if progressive_split_ranges:
             if region_deletion_alphas is None:
                 raise ValueError("ERROR: To use progressive_split_ranges region_deletion MUST be configured")
@@ -88,7 +88,7 @@ class InterestTree(InterestModel, Observable):
                          split_mode=split_mode,
                          progress_win_size=progress_win_size,
                          progress_measure=progress_measure,
-                         sampling_mode=sampling_mode,
+                         get_sampling_mode=self.get_sampling_mode,
                          idxs=[],
                          plot_objects=plot_objects,
                          interest_tree_rng=self.interest_tree_rng,
@@ -135,6 +135,9 @@ class InterestTree(InterestModel, Observable):
         # print(sum(execution_turns))
         # print(execution_turns)
         return len(execution_turns)
+
+    def get_sampling_mode(self):
+        return self.sampling_mode
 
     def get_data_flow_uuid(self):
         return self.data_flow_uuid
@@ -317,7 +320,7 @@ class Tree(Observable):
                  max_depth,
                  split_mode,
                  progress_measure,
-                 sampling_mode,
+                 get_sampling_mode,
                  get_execution_iteration,
                  progress_win_size=None,
                  max_points_per_region=None,
@@ -394,7 +397,7 @@ class Tree(Observable):
             self.max_points_per_region = max_points_per_region
             self.progress_win_size = progress_win_size
         self.progress_measure = progress_measure
-        self.sampling_mode = sampling_mode
+        self.get_sampling_mode = get_sampling_mode
 
         self.plot_objects = [] if plot_objects is None else plot_objects
         self.split_dim = split_dim
@@ -768,16 +771,16 @@ class Tree(Observable):
             elif self.greater.can_sample is False:
                 print("Cannot sample greater child")
                 maxp = lp
-            if self.sampling_mode['multiscale']:
+            if self.get_sampling_mode()['multiscale']:
                 tp = self.progress
                 if tp > maxp:
                     return self.sample_bounds()
             if gp == maxp:
-                sampling_mode = copy.deepcopy(self.sampling_mode)
+                sampling_mode = copy.deepcopy(self.get_sampling_mode())
                 sampling_mode['mode'] = 'greedy'
                 return self.greater.sample(sampling_mode=sampling_mode)
             else:
-                sampling_mode = copy.deepcopy(self.sampling_mode)
+                sampling_mode = copy.deepcopy(self.get_sampling_mode())
                 sampling_mode['mode'] = 'greedy'
                 return self.lower.sample(sampling_mode=sampling_mode)
 
@@ -797,12 +800,12 @@ class Tree(Observable):
             iteration_epsilon = epsilon[execution_iteration] if execution_iteration < len(epsilon) else epsilon[-1]
 
         if iteration_epsilon > np.random.random():
-            sampling_mode = copy.deepcopy(self.sampling_mode)  # This was updating the class instance because reference
+            sampling_mode = copy.deepcopy(self.get_sampling_mode())  # This was updating the class instance because reference
             sampling_mode['mode'] = 'random'
             self.emit('sample', 'sampling random')
             return self.sample(sampling_mode=sampling_mode)
         else:
-            sampling_mode = copy.deepcopy(self.sampling_mode)
+            sampling_mode = copy.deepcopy(self.get_sampling_mode())
             sampling_mode['mode'] = 'greedy'
             return self.sample(sampling_mode=sampling_mode)
 
@@ -823,7 +826,7 @@ class Tree(Observable):
         if self.leafnode:
             return self.sample_bounds() # random sample of bounds
         else:
-            if self.sampling_mode['multiscale']:
+            if self.get_sampling_mode()['multiscale']:
                 nodes = self.get_nodes()
             else:
                 nodes = self.get_leaves()
@@ -855,7 +858,7 @@ class Tree(Observable):
 
         """
         if sampling_mode is None:
-            sampling_mode = self.sampling_mode
+            sampling_mode = self.get_sampling_mode()
 
         if sampling_mode['mode'] == 'random':
             return self.sample_random()
@@ -1131,7 +1134,7 @@ class Tree(Observable):
                           max_depth=self.max_depth - 1,
                           split_mode=self.split_mode,
                           progress_measure=self.progress_measure,
-                          sampling_mode=self.sampling_mode,
+                          get_sampling_mode=self.get_sampling_mode,
                           progress_win_size=self.progress_win_size,
                           max_points_per_region=self.max_points_per_region,
                           idxs = lower_idx,
@@ -1151,7 +1154,7 @@ class Tree(Observable):
                             max_depth=self.max_depth - 1,
                             split_mode=self.split_mode,
                             progress_measure=self.progress_measure,
-                            sampling_mode=self.sampling_mode,
+                            get_sampling_mode=self.get_sampling_mode,
                             progress_win_size=self.progress_win_size,
                             max_points_per_region=self.max_points_per_region,
                             idxs = greater_idx,
