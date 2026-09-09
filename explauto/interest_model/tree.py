@@ -2063,6 +2063,26 @@ interest_models = {'tree': (InterestTree, {'default': {'max_points_per_region': 
                                                                             'prog_win': [(3, 3)]},
                                                # 'prog_win': [(1, 1), (4, 8), (8,8)]},
                                            },
+                                           'vector_wip': {
+                                               'max_depth': 100,
+                                               'split_mode': 'variance_of_cos_sim',
+                                               'competence_measure': competence_cos_dist_exp,
+                                               'progress_measure': 'idk',
+                                               'sampling_mode': {'mode':'epsilon_greedy',
+                                                                 'param':[1, 0.5, 0.1],
+                                                                 'multiscale':False,
+                                                                 # 'volume':True},
+                                                                 'volume':[True, True, False]},
+                                               'plot_objects': None,
+                                               'region_deletion_alphas':[(1, 1)],
+                                               # 'region_deletion_alphas':[(0, 0), (0.5, 0.1), (0.3, 0.2)],
+                                               'max_turn_counts': [40], # 1st execution, all future executions. # 60 moves is about the max cozmo can do with long distances
+                                               # 'max_turn_counts': [65, 45, 20], # 1st execution, all future executions
+                                               'progressive_split_ranges': {'max_ppr': [(10, 10)],
+                                                                            # 'progressive_split_ranges': {'max_ppr': [(65, 65), (10,20), (20,20)],
+                                                                            'prog_win': [(3, 3)]},
+                                               # 'prog_win': [(1, 1), (4, 8), (8,8)]},
+                                           },
                                            })}
 
 
