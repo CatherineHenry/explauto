@@ -99,7 +99,7 @@ class InterestTree(InterestModel, Observable):
                          get_progressive_split_ranges=self.get_progressive_split_ranges,
                          get_simulation_data = self.get_simulation_data,
                          get_safe_coordinate_regions = self.get_safe_coordinate_regions,
-                         get_unsafe_coordinate_regions = self.get_safe_coordinate_regions)
+                         get_unsafe_coordinate_regions = self.get_unsafe_coordinate_regions)
 
         InterestModel.__init__(self, expl_dims)
         Observable.__init__(self)
@@ -1175,7 +1175,7 @@ class Tree(Observable):
                           get_execution_iteration=self.get_execution_iteration,
                           get_simulation_data=self.get_simulation_data,
                           get_safe_coordinate_regions = self.get_safe_coordinate_regions,
-                          get_unsafe_coordinate_regions = self.get_safe_coordinate_regions)
+                          get_unsafe_coordinate_regions = self.get_unsafe_coordinate_regions)
 
         self.greater = Tree(get_data_x=self.get_data_x,
                             bounds_x=g_bounds_x,
@@ -1197,7 +1197,7 @@ class Tree(Observable):
                             get_execution_iteration=self.get_execution_iteration,
                             get_simulation_data=self.get_simulation_data,
                             get_safe_coordinate_regions = self.get_safe_coordinate_regions,
-                            get_unsafe_coordinate_regions = self.get_safe_coordinate_regions)
+                            get_unsafe_coordinate_regions = self.get_unsafe_coordinate_regions)
 
 
     def calc_tree_variance_of_cos_sims(self, tree_sensory):
